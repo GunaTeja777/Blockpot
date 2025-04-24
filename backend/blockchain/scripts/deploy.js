@@ -12,8 +12,15 @@ async function main() {
     // Set up wallet using private key from environment variables
     const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
     
-    // Create a contract factory for the LogStorage contract
-    const LogStorage = await ethers.getContractFactory("LogStorage", wallet);
+    // Get the LogStorage contract ABI and bytecode (make sure to compile it beforehand)
+    const logStorageArtifact = require('./artifacts/contracts/LogStorage.sol/LogStorage.json');
+    
+    // Create a contract factory using the contract ABI and bytecode
+    const LogStorage = new ethers.ContractFactory(
+        logStorageArtifact.abi,
+        logStorageArtifact.bytecode,
+        wallet
+    );
 
     // Set the gas price (adjust this value based on the current network gas prices)
     const gasPrice = await provider.getGasPrice(); // Fetch current gas price
