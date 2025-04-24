@@ -11,7 +11,7 @@
   "description": "",
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
-    "ethers": "^6.13.5",
+    "ethers": "^5.7.0",
     "hardhat": "^2.23.0"
   },
   "dependencies": {
