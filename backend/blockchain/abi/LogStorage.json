@@ -1,0 +1,150 @@
+{
+"abi":[
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "logId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "ip",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "command",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "threatLevel",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "timestamp",
+          "type": "string"
+        }
+      ],
+      "name": "LogStored",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "index",
+          "type": "uint256"
+        }
+      ],
+      "name": "getLog",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getLogCount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "logs",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "ip",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "command",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "threatLevel",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "timestamp",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "ip",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "command",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "threatLevel",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "timestamp",
+          "type": "string"
+        }
+      ],
+      "name": "storeLog",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ]
+}
