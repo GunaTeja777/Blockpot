@@ -1,10 +1,9 @@
-// cowrie-log-reader.js
 const fs = require('fs');
 const readline = require('readline');
 const EventEmitter = require('events');
 const emitter = new EventEmitter();
 
-const logPath = '/home/anand/cowrie/var/log/cowrie/cowrie.log'
+const logPath = '/home/anand/cowrie/var/log/cowrie/cowrie.log';
 
 const rl = readline.createInterface({
   input: fs.createReadStream(logPath),
@@ -12,17 +11,19 @@ const rl = readline.createInterface({
 });
 
 rl.on('line', (line) => {
-  // Example Cowrie log line to match: CMD (192.168.0.1) ls -la
   if (line.includes('CMD')) {
     const match = line.match(/CMD\s+\(([^)]+)\)\s+(.+)/);
     if (match) {
       const [_, ip, command] = match;
-      emitter.emit('cowrie_log', {
+      const logEvent = {
         ip,
         command,
         timestamp: new Date().toISOString(),
         threatLevel: 'high',
-      });
+      };
+
+      console.log('Detected Cowrie log event:', logEvent); // ✅ Add this line
+      emitter.emit('cowrie_log', logEvent);
     }
   }
 });
