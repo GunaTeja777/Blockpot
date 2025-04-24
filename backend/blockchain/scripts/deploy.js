@@ -1,34 +1,44 @@
-const fs = require("fs");
+// Load environment variables from .env file
+require('dotenv').config();
+
+// Import necessary modules
+const fs = require('fs');
+const { ethers } = require('ethers');  // Correctly import ethers
 
 async function main() {
-  // Set the provider (using environment variable for Sepolia RPC URL)
-  const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
-  
-  // Set the signer (using the wallet private key from the environment)
-  const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+    // Setup provider using Sepolia RPC URL
+    const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
+    
+    // Set up wallet using private key from environment variables
+    const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+    
+    // Create a contract factory for the LogStorage contract
+    const LogStorage = await ethers.getContractFactory("LogStorage", wallet);
 
-  // Get the contract factory for "LogStorage"
-  const LogStorage = await ethers.getContractFactory("LogStorage", wallet);
+    // Set the gas price (adjust this value based on the current network gas prices)
+    const gasPrice = await provider.getGasPrice(); // Fetch current gas price
 
-  // Specify the gas price (example: 5 Gwei)
-  const gasPrice = ethers.utils.parseUnits('5', 'gwei');  // Adjust as needed
+    // Deploy the contract with custom gas price and gas limit
+    const logStorage = await LogStorage.deploy({
+        gasPrice: gasPrice,               // Gas price fetched from the provider
+        gasLimit: 3000000,                // Gas limit (adjust if needed)
+    });
 
-  // Deploy the contract with a lower gas price
-  const logStorage = await LogStorage.deploy({
-    gasPrice: gasPrice,  // Set the custom gas price here
-    gasLimit: 3000000,  // Ensure this is enough for the contract deployment
-  });
+    // Wait for the contract to be mined
+    await logStorage.deployed();
 
-  console.log("LogStorage deployed to:", logStorage.target); // Use `.target` for ethers v6
+    // Output the contract address
+    console.log("LogStorage deployed to:", logStorage.address);  // Correct usage of `.address` in ethers v6
 
-  // Save the deployed contract address to a JSON file
-  fs.writeFileSync(
-    "./contractAddress.json",
-    JSON.stringify({ address: logStorage.target }, null, 2) // Use .target for ethers v6
-  );
+    // Save the contract address to a JSON file for future use
+    fs.writeFileSync(
+        "./contractAddress.json",
+        JSON.stringify({ address: logStorage.address }, null, 2) // Use .address to get the deployed address
+    );
 }
 
+// Execute the deployment process
 main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
+    console.error("Deployment failed:", error);
+    process.exitCode = 1; // Exit with failure code
 });
