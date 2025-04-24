@@ -18,7 +18,7 @@ async function main() {
 
   const logStorage = await LogStorage.deploy({
     gasPrice: gasPrice,
-    gasLimit: 102756,
+    gasLimit: 3000000,
   });
 
   await logStorage.deployed();
