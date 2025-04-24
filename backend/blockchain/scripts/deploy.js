@@ -10,8 +10,8 @@ async function main() {
   // Set the signer (using the wallet private key from the environment)
   const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 
-  // Get the contract artifact (make sure you've compiled your contract)
-  const logStorageArtifact = require("./artifacts/contracts/LogStorage.sol/LogStorage.json");
+  // Reference the contract ABI and bytecode from your 'abi' folder
+  const logStorageArtifact = require(".backend/blockchain/abi/LogStorage.json"); // Path to your ABI file
 
   // Create contract factory using ABI and bytecode
   const LogStorage = new ethers.ContractFactory(
