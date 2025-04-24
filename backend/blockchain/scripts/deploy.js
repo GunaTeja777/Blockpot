@@ -14,11 +14,11 @@ async function main() {
     wallet
   );
 
-  const gasPrice = ethers.utils.parseUnits("5", "gwei");
+  const gasPrice = ethers.utils.parseUnits("2", "gwei");
 
   const logStorage = await LogStorage.deploy({
     gasPrice: gasPrice,
-    gasLimit: 3000000,
+    gasLimit: 300,
   });
 
   await logStorage.deployed();
