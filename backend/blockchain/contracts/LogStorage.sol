@@ -11,7 +11,8 @@ contract LogStorage {
 
     LogEntry[] public logs;
 
-    event LogStored(uint indexed laogId, string ip, string command, string threatLevel, string timestamp);
+    // Fixed typo in event parameter name from 'laogId' to 'logId'
+    event LogStored(uint indexed logId, string ip, string command, string threatLevel, string timestamp);
 
     function storeLog(string memory ip, string memory command, string memory threatLevel, string memory timestamp) public {
         logs.push(LogEntry(ip, command, threatLevel, timestamp));
