@@ -1,36 +1,34 @@
-const { ethers } = require('ethers');
-const fs = require('fs');
+const fs = require("fs");
 
 async function main() {
-    // Load contract ABI and bytecode
-    const contractJson = JSON.parse(fs.readFileSync('./blockchain/abi/LogStorage.json'));
+  // Set the provider (using environment variable for Sepolia RPC URL)
+  const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
+  
+  // Set the signer (using the wallet private key from the environment)
+  const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 
-    // Set up provider and signer (private key)
-    const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
-    const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+  // Get the contract factory for "LogStorage"
+  const LogStorage = await ethers.getContractFactory("LogStorage", wallet);
 
-    // Create contract factory
-    const contractFactory = new ethers.ContractFactory(contractJson.abi, contractJson.bytecode, wallet);
+  // Specify the gas price (example: 5 Gwei)
+  const gasPrice = ethers.utils.parseUnits('5', 'gwei');  // Adjust as needed
 
-    // Specify lower gas price (example: 5 Gwei)
-    const gasPrice = ethers.utils.parseUnits('5', 'gwei');
+  // Deploy the contract with a lower gas price
+  const logStorage = await LogStorage.deploy({
+    gasPrice: gasPrice,  // Set the custom gas price here
+    gasLimit: 3000000,  // Ensure this is enough for the contract deployment
+  });
 
-    // Deploy the contract with lower gas price
-    const contract = await contractFactory.deploy({
-        gasPrice: gasPrice,
-        gasLimit: 3000000,  // Ensure this is enough for the contract deployment
-    });
+  console.log("LogStorage deployed to:", logStorage.target); // Use `.target` for ethers v6
 
-    console.log('Deploying contract...');
-
-    // Wait for the contract to be mined
-    const receipt = await contract.deployTransaction.wait();
-    console.log('Contract deployed at address:', contract.address);
-    console.log('Transaction hash:', contract.deployTransaction.hash);
-    console.log('Block number:', receipt.blockNumber);
+  // Save the deployed contract address to a JSON file
+  fs.writeFileSync(
+    "./contractAddress.json",
+    JSON.stringify({ address: logStorage.target }, null, 2) // Use .target for ethers v6
+  );
 }
 
 main().catch((error) => {
-    console.error('Error in contract deployment:', error);
-    process.exit(1);
+  console.error(error);
+  process.exitCode = 1;
 });
