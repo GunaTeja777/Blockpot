@@ -1,5 +1,5 @@
 const fs = require("fs");
-
+const { ethers } = require('ethers');
 async function main() {
   // Set the provider (using environment variable for Sepolia RPC URL)
   const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
