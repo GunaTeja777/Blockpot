@@ -11,7 +11,7 @@ async function main() {
   const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 
   // Reference the contract ABI and bytecode from your 'abi' folder
-  const logStorageArtifact = require(".backend/blockchain/abi/LogStorage.json"); // Path to your ABI file
+  const logStorageArtifact = require("../../../../abi/LogStorage.json"); // Correct path based on your directory
 
   // Create contract factory using ABI and bytecode
   const LogStorage = new ethers.ContractFactory(
