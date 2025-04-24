@@ -11,32 +11,25 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 const PORT = process.env.PORT || 3001;
 
-// Store connected clients
 const clients = new Set();
 
-// Initialize blockchain components
 let provider, wallet, contract;
 
 async function initializeBlockchain() {
     try {
-        // Load ABI
         const contractJson = JSON.parse(fs.readFileSync('./blockchain/abi/LogStorage.json'));
         if (!contractJson.abi) throw new Error("ABI property not found in contract JSON");
+
         const ABI = contractJson.abi;
 
-        // Validate environment variables
         if (!process.env.SEPOLIA_RPC_URL || !process.env.PRIVATE_KEY || !process.env.CONTRACT_ADDRESS) {
             throw new Error("Missing required environment variables");
         }
 
-        // Initialize provider and wallet
         provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
         wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
-
-        // Initialize contract
         contract = new ethers.Contract(process.env.CONTRACT_ADDRESS, ABI, wallet);
 
-        // Verify contract connection
         const code = await provider.getCode(process.env.CONTRACT_ADDRESS);
         if (code === '0x') throw new Error("No code at contract address");
 
@@ -48,7 +41,7 @@ async function initializeBlockchain() {
     }
 }
 
-// WebSocket connection handler
+// WebSocket connection
 wss.on('connection', (ws) => {
     console.log('Frontend connected via WebSocket');
     clients.add(ws);
@@ -63,8 +56,8 @@ wss.on('connection', (ws) => {
     });
 });
 
-// Cowrie log handler
-cowrieEmitter.on('cowrieLog', async ({ ip, command, threatLevel, timestamp }) => {
+// LIVE Cowrie log listener
+cowrieEmitter.on('cowrie_log', async ({ ip, command, threatLevel, timestamp }) => {
     const message = JSON.stringify({
         ip,
         command,
@@ -73,7 +66,7 @@ cowrieEmitter.on('cowrieLog', async ({ ip, command, threatLevel, timestamp }) =>
         event: 'new_log'
     });
 
-    // Broadcast to all clients
+    // Broadcast to frontend
     clients.forEach(client => {
         if (client.readyState === WebSocket.OPEN) {
             client.send(message);
@@ -82,17 +75,8 @@ cowrieEmitter.on('cowrieLog', async ({ ip, command, threatLevel, timestamp }) =>
 
     // Store on blockchain
     try {
-        const stringThreatLevel = threatLevel.toString();
-        const stringTimestamp = timestamp.toString();
-        
-        const tx = await contract.storeLog(
-            ip,
-            command,
-            stringThreatLevel,
-            stringTimestamp
-        );
+        const tx = await contract.storeLog(ip, command, threatLevel, timestamp);
         const receipt = await tx.wait();
-        
         console.log('✅ Stored on blockchain:', {
             txHash: tx.hash,
             blockNumber: receipt.blockNumber
@@ -102,7 +86,7 @@ cowrieEmitter.on('cowrieLog', async ({ ip, command, threatLevel, timestamp }) =>
     }
 });
 
-// Health check endpoint
+// Health check
 app.get('/health', async (req, res) => {
     try {
         const network = await provider.getNetwork();
@@ -119,7 +103,7 @@ app.get('/health', async (req, res) => {
     }
 });
 
-// Start the server
+// Start server
 async function startServer() {
     const blockchainInitialized = await initializeBlockchain();
     if (!blockchainInitialized) {
@@ -127,20 +111,18 @@ async function startServer() {
         process.exit(1);
     }
 
-    // Get network info before starting server
     const network = await provider.getNetwork();
-    
+
     server.listen(PORT, () => {
         console.log(`🚀 Server running on port ${PORT}`);
         console.log(`📡 Connected to ${network.name}`);
     });
 }
+
 console.log("PRIVATE_KEY:", process.env.PRIVATE_KEY ? "✅" : "❌");
 console.log("SEPOLIA_RPC_URL:", process.env.SEPOLIA_RPC_URL ? "✅" : "❌");
 console.log("CONTRACT_ADDRESS:", process.env.CONTRACT_ADDRESS ? "✅" : "❌");
 
-
-// Start the application
 startServer().catch(err => {
     console.error('Failed to start server:', err);
     process.exit(1);
