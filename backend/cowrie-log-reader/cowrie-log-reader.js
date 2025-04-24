@@ -4,7 +4,7 @@ const readline = require('readline');
 const EventEmitter = require('events');
 const emitter = new EventEmitter();
 
-const logPath = '/path/to/cowrie/log/cowrie.log'; // Replace with actual path
+const logPath = '/Home/Desktop/cowrie/var/log/cowrie/cowrie.log' // Replace with actual path
 
 const rl = readline.createInterface({
   input: fs.createReadStream(logPath),
