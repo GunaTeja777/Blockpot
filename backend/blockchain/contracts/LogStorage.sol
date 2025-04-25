@@ -2,30 +2,71 @@
 pragma solidity ^0.8.0;
 
 contract LogStorage {
-    struct LogEntry {
+    event LogStored(
+        address indexed sender,
+        string indexed ip,
+        string command,
+        string threatLevel,
+        uint256 timestamp,
+        bytes32 logId
+    );
+
+    struct Log {
         string ip;
         string command;
         string threatLevel;
-        string timestamp;
+        uint256 timestamp;
+        bytes32 id;
     }
 
-    LogEntry[] public logs;
+    Log[] public logs;
+    address public owner;
 
-    // Fixed typo in event parameter name from 'laogId' to 'logId'
-    event LogStored(uint indexed logId, string ip, string command, string threatLevel, string timestamp);
-
-    function storeLog(string memory ip, string memory command, string memory threatLevel, string memory timestamp) public {
-        logs.push(LogEntry(ip, command, threatLevel, timestamp));
-        emit LogStored(logs.length - 1, ip, command, threatLevel, timestamp);
+    constructor() {
+        owner = msg.sender;
     }
 
-    function getLogCount() public view returns (uint) {
+    function storeLog(
+        string memory ip,
+        string memory command,
+        string memory threatLevel,
+        uint256 timestamp
+    ) external returns (bytes32) {
+        bytes32 logId = keccak256(abi.encodePacked(ip, command, block.timestamp));
+        
+        logs.push(Log({
+            ip: ip,
+            command: command,
+            threatLevel: threatLevel,
+            timestamp: timestamp,
+            id: logId
+        }));
+
+        emit LogStored(
+            msg.sender,
+            ip,
+            command,
+            threatLevel,
+            timestamp,
+            logId
+        );
+
+        return logId;
+    }
+
+    function getLogCount() external view returns (uint256) {
         return logs.length;
     }
 
-    function getLog(uint index) public view returns (string memory, string memory, string memory, string memory) {
-        require(index < logs.length, "Invalid index");
-        LogEntry memory entry = logs[index];
-        return (entry.ip, entry.command, entry.threatLevel, entry.timestamp);
+    function getLog(uint256 index) external view returns (
+        string memory,
+        string memory,
+        string memory,
+        uint256,
+        bytes32
+    ) {
+        require(index < logs.length, "Index out of bounds");
+        Log memory log = logs[index];
+        return (log.ip, log.command, log.threatLevel, log.timestamp, log.id);
     }
 }
