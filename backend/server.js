@@ -148,7 +148,7 @@ async function storeOnBlockchain(logData) {
             logData.content,
             logData.threatLevel,
             Math.floor(new Date(logData.timestamp).getTime() / 1000
-        );
+        ));
         
         const receipt = await tx.wait();
         
