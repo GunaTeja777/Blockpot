@@ -26,7 +26,7 @@ const wss = new WebSocket.Server({
 
 const PORT = process.env.PORT || 3001;
 const clients = new Set();
-const logPath = process.env.COWRIE_LOG_PATH || '/home/cowrie/cowrie/var/log/cowrie/cowrie.log';
+const logPath = process.env.COWRIE_LOG_PATH || '/home/anand/cowrie/var/log/cowrie/cowrie.log';
 
 let provider, wallet, contract;
 
