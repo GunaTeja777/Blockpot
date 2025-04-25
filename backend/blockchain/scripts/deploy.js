@@ -1,33 +1,15 @@
-const { ethers } = require("ethers");
 const fs = require("fs");
-require("dotenv").config();
 
 async function main() {
-  const provider = new ethers.providers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
-  const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+  const LogStorage = await ethers.getContractFactory("LogStorage");
+  const logStorage = await LogStorage.deploy(); // Deploy already waits for confirmation
 
-  const logStorageArtifact = require("../abi/LogStorage.json");
+  console.log("LogStorage deployed to:", logStorage.target); // Use .target instead of .address in ethers v6
 
-  const LogStorage = new ethers.ContractFactory(
-    logStorageArtifact.abi,
-    logStorageArtifact.bytecode,
-    wallet
-  );
-
-  const gasPrice = ethers.utils.parseUnits("5", "gwei");
-
-  const logStorage = await LogStorage.deploy({
-    gasPrice: gasPrice,
-    gasLimit: 3000000,
-  });
-
-  await logStorage.deployed();
-
-  console.log("LogStorage deployed to:", logStorage.address);
-
+  // Save address to JSON file
   fs.writeFileSync(
     "./contractAddress.json",
-    JSON.stringify({ address: logStorage.address }, null, 2)
+    JSON.stringify({ address: logStorage.target }, null, 2) // Use .target
   );
 }
 
