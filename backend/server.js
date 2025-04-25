@@ -6,16 +6,25 @@ const { ethers } = require('ethers');
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
+const cors = require('cors');
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+
+// Enhanced CORS configuration
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  credentials: true
+}));
+
+// WebSocket Server
+const wss = new WebSocket.Server({
+  server,
+  clientTracking: true
+});
+
 const PORT = process.env.PORT || 3001;
-const cors = require('cors');
-app.use(cors()); // Enable CORS for all routes
-
-
-
 const clients = new Set();
 const logPath = process.env.COWRIE_LOG_PATH || '/home/cowrie/cowrie/var/log/cowrie/cowrie.log';
 
@@ -138,8 +147,8 @@ async function storeOnBlockchain(logData) {
             logData.ip || 'unknown',
             logData.content,
             logData.threatLevel,
-            Math.floor(new Date(logData.timestamp).getTime() / 1000) // Unix timestamp
-        );
+            Math.floor(new Date(logData.timestamp).getTime() / 1000
+        ));
         
         const receipt = await tx.wait();
         
@@ -170,14 +179,12 @@ function tailCowrieLogs() {
             if (line.trim()) {
                 const logEvent = processCowrieLog(line);
                 if (logEvent) {
-                    // Immediately broadcast the raw log
                     broadcastEvent({
                         event: 'new_log',
                         data: logEvent,
                         blockchainStatus: 'pending'
                     });
 
-                    // Store on blockchain and broadcast confirmation
                     try {
                         const blockchainResult = await storeOnBlockchain(logEvent);
                         if (blockchainResult.success) {
@@ -206,26 +213,40 @@ function tailCowrieLogs() {
 
     tailProcess.on('close', (code) => {
         console.error(`Tail process exited with code ${code}`);
-        // Attempt to restart
         setTimeout(tailCowrieLogs, 5000);
     });
 }
 
 // WebSocket connection handler
-wss.on('connection', (ws) => {
-    console.log('New frontend connection');
+wss.on('connection', (ws, req) => {
+    console.log('New frontend connection from:', req.headers.origin);
     clients.add(ws);
 
+    // Heartbeat
+    const heartbeat = () => {
+        if (ws.isAlive === false) return ws.terminate();
+        ws.isAlive = false;
+        ws.ping();
+    };
+
+    ws.isAlive = true;
+    const interval = setInterval(heartbeat, 30000);
+
+    ws.on('pong', () => {
+        ws.isAlive = true;
+    });
+
     ws.on('close', () => {
+        clearInterval(interval);
         clients.delete(ws);
         console.log('Frontend disconnected');
     });
 
     ws.on('error', (error) => {
         console.error('WebSocket error:', error);
+        clients.delete(ws);
     });
 
-    // Send initial connection message
     ws.send(JSON.stringify({
         event: 'connection_established',
         message: 'Connected to Cowrie log server',
@@ -254,7 +275,7 @@ app.get('/health', async (req, res) => {
 app.get('/logs', async (req, res) => {
     try {
         const eventFilter = contract.filters.LogStored();
-        const logs = await contract.queryFilter(eventFilter, -5000); // Last 5000 blocks
+        const logs = await contract.queryFilter(eventFilter, -5000);
         
         const formattedLogs = logs.map(log => ({
             id: `${log.args.timestamp}-${log.transactionHash}`,
@@ -270,7 +291,7 @@ app.get('/logs', async (req, res) => {
             blockchainStatus: 'confirmed'
         })).reverse();
         
-        res.status(200).json(formattedLogs.slice(0, 100)); // Return most recent 100 logs
+        res.status(200).json(formattedLogs.slice(0, 100));
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -286,19 +307,22 @@ async function startServer() {
         process.exit(1);
     }
 
-    const network = await provider.getNetwork();
-    
-    server.listen(PORT, () => {
-        console.log(`🚀 Server running on port ${PORT}`);
-        console.log(`📡 Connected to ${network.name} (Chain ID: ${network.chainId})`);
-        console.log(`💰 Wallet address: ${wallet.address}`);
-        
-        // Start watching logs
+    server.listen(PORT, '0.0.0.0', () => {
+        console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
+        console.log(`📡 WebSocket server running on ws://0.0.0.0:${PORT}`);
         tailCowrieLogs();
+    });
+
+    server.on('error', (error) => {
+        if (error.code === 'EADDRINUSE') {
+            console.error(`Port ${PORT} is already in use`);
+        } else {
+            console.error('Server error:', error);
+        }
+        process.exit(1);
     });
 }
 
-// Log environment variable status
 console.log("Environment Variables:");
 console.log("SEPOLIA_RPC_URL:", process.env.SEPOLIA_RPC_URL ? "✅" : "❌");
 console.log("CONTRACT_ADDRESS:", process.env.CONTRACT_ADDRESS ? "✅" : "❌");

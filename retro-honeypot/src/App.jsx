@@ -16,7 +16,6 @@ function App() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Verify authentication status
     const verifyAuth = async () => {
       try {
         const authStatus = await checkAuthStatus();
@@ -32,7 +31,6 @@ function App() {
 
     verifyAuth();
 
-    // Initialize WebSocket connection
     webSocketService.connect();
 
     const removeLogListener = webSocketService.addListener(
@@ -65,7 +63,6 @@ function App() {
       removeLogListener();
       removeStatusListener();
       removeErrorListener();
-      // Don't disconnect here - let the service manage reconnections
     };
   }, [navigate]);
 

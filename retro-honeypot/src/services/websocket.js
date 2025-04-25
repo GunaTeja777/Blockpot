@@ -6,17 +6,17 @@ class WebSocketService {
       this.maxReconnectAttempts = 5;
       this.reconnectDelay = 1000;
       this.isManualClose = false;
+      this.heartbeatInterval = null;
       this.baseUrl = this.getWebSocketUrl();
     }
   
-    // Safe way to get WebSocket URL that works in browser
     getWebSocketUrl() {
-      // Use window variable if available (set in public/config.js)
-      if (typeof window !== 'undefined' && window.REACT_APP_WS_URL) {
-        return window.REACT_APP_WS_URL;
+      // Use proxy in development
+      if (process.env.NODE_ENV === 'development') {
+        return 'ws://localhost:3001'; // Match your backend port
       }
-      // Default fallback for development
-      return 'ws://localhost:3001';
+      // In production, use window variable or environment variable
+      return window.REACT_APP_WS_URL || 'ws://your-production-url.com';
     }
   
     connect() {
@@ -27,12 +27,21 @@ class WebSocketService {
       this.socket.onopen = () => {
         console.log('WebSocket connected');
         this.reconnectAttempts = 0;
+        
+        // Start heartbeat
+        this.heartbeatInterval = setInterval(() => {
+          if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+            this.socket.send(JSON.stringify({ type: 'heartbeat' }));
+          }
+        }, 25000);
+  
         this.notifyListeners('connection_change', 'connected');
       };
   
       this.socket.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          if (data.type === 'heartbeat') return; // Ignore heartbeat responses
           this.notifyListeners(data.event, data.data || data);
         } catch (err) {
           console.error('Error parsing WebSocket message:', err);
@@ -44,9 +53,14 @@ class WebSocketService {
       };
   
       this.socket.onclose = (event) => {
+        if (this.heartbeatInterval) {
+          clearInterval(this.heartbeatInterval);
+          this.heartbeatInterval = null;
+        }
+  
         if (this.isManualClose) return;
         
-        console.log(`WebSocket disconnected`);
+        console.log(`WebSocket disconnected (code: ${event.code}, reason: ${event.reason})`);
         this.socket = null;
         this.notifyListeners('connection_change', 'disconnected');
         
@@ -56,6 +70,10 @@ class WebSocketService {
             this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000);
             this.connect();
           }, this.reconnectDelay);
+        } else {
+          this.notifyListeners('error', { 
+            message: 'Max reconnection attempts reached' 
+          });
         }
       };
   
@@ -70,10 +88,28 @@ class WebSocketService {
   
     disconnect() {
       this.isManualClose = true;
+      if (this.heartbeatInterval) {
+        clearInterval(this.heartbeatInterval);
+        this.heartbeatInterval = null;
+      }
       if (this.socket) {
         this.socket.close(1000, 'Manual disconnect');
         this.socket = null;
       }
+    }
+  
+    send(message) {
+      if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+        try {
+          const payload = typeof message === 'string' ? message : JSON.stringify(message);
+          this.socket.send(payload);
+          return true;
+        } catch (error) {
+          console.error('Error sending message:', error);
+          return false;
+        }
+      }
+      return false;
     }
   
     addListener(event, callback) {
@@ -99,6 +135,17 @@ class WebSocketService {
             console.error(`Error in ${event} listener:`, err);
           }
         });
+      }
+    }
+  
+    getStatus() {
+      if (!this.socket) return 'disconnected';
+      switch (this.socket.readyState) {
+        case WebSocket.CONNECTING: return 'connecting';
+        case WebSocket.OPEN: return 'connected';
+        case WebSocket.CLOSING: return 'disconnecting';
+        case WebSocket.CLOSED: return 'disconnected';
+        default: return 'unknown';
       }
     }
   }
