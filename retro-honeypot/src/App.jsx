@@ -33,45 +33,40 @@ function App() {
     verifyAuth();
 
     // Initialize WebSocket connection
-    const initializeWebSocket = () => {
-      webSocketService.connect();
+    webSocketService.connect();
 
-      const removeLogListener = webSocketService.addListener(
-        "new_log",
-        (newLog) => {
-          setLogs((prevLogs) => [newLog, ...prevLogs.slice(0, 99)]);
+    const removeLogListener = webSocketService.addListener(
+      "new_log",
+      (newLog) => {
+        setLogs((prevLogs) => [newLog, ...prevLogs.slice(0, 99)]);
+      }
+    );
+
+    const removeStatusListener = webSocketService.addListener(
+      "connection_change",
+      (status) => {
+        setConnectionStatus(status);
+        if (status === "disconnected") {
+          setError("WebSocket disconnected - attempting to reconnect...");
+        } else if (status === "connected") {
+          setError(null);
         }
-      );
+      }
+    );
 
-      const removeStatusListener = webSocketService.addListener(
-        "connection_change",
-        (status) => {
-          setConnectionStatus(status);
-          if (status === "disconnected") {
-            setError("WebSocket disconnected - attempting to reconnect...");
-          } else if (status === "connected") {
-            setError(null);
-          }
-        }
-      );
+    const removeErrorListener = webSocketService.addListener(
+      "error",
+      (error) => {
+        setError(`WebSocket error: ${error.message}`);
+      }
+    );
 
-      const removeErrorListener = webSocketService.addListener(
-        "error",
-        (error) => {
-          setError(`WebSocket error: ${error.message}`);
-        }
-      );
-
-      return () => {
-        removeLogListener();
-        removeStatusListener();
-        removeErrorListener();
-        webSocketService.disconnect();
-      };
+    return () => {
+      removeLogListener();
+      removeStatusListener();
+      removeErrorListener();
+      // Don't disconnect here - let the service manage reconnections
     };
-
-    const cleanup = initializeWebSocket();
-    return cleanup;
   }, [navigate]);
 
   const ProtectedRoute = ({ element: Element, ...rest }) => {
