@@ -228,7 +228,7 @@ wss.on('connection', (ws, req) => {
 });
 
 // API Endpoints
-aapp.get('/health', async (req, res) => {
+app.get('/health', async (req, res) => {
     try {
       const network = await provider.getNetwork();
       res.json({
