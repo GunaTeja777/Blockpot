@@ -229,46 +229,35 @@ wss.on('connection', (ws, req) => {
 
 // API Endpoints
 app.get('/health', async (req, res) => {
-    try {
-      const network = await provider.getNetwork();
-      res.json({
-        status: 'ok',
-        network: network.name,
-        chainId: network.chainId,
-        blockNumber: await provider.getBlockNumber()
-      });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-  
-  app.get('/logs', async (req, res) => {
-    try {
-      const logs = await contract.queryFilter('LogStored', -1000);
-      res.json(logs.map(log => ({
-        id: log.transactionHash,
-        type: log.args.command.includes('Used credentials') ? 'login_attempt' : 'command',
-        ip: log.args.ip,
-        content: log.args.command,
-        timestamp: new Date(log.args.timestamp * 1000).toISOString(),
-        txHash: log.transactionHash
-      })).reverse());
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-  
-  // Example of a properly parameterized route
-  app.get('/logs/:txHash', async (req, res) => {
-    try {
-      const log = await contract.queryFilter(
-        contract.filters.LogStored(null, null, null, null, req.params.txHash)
-      );
-      res.json(log);
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
+  try {
+    const network = await provider.getNetwork();
+    res.json({
+      status: 'ok',
+      network: network.name,
+      chainId: network.chainId,
+      blockNumber: await provider.getBlockNumber()
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/logs', async (req, res) => {
+  try {
+    const logs = await contract.queryFilter('LogStored', -1000);
+    res.json(logs.map(log => ({
+      id: log.transactionHash,
+      type: log.args.command.includes('Used credentials') ? 'login_attempt' : 'command',
+      ip: log.args.ip,
+      content: log.args.command,
+      timestamp: new Date(log.args.timestamp * 1000).toISOString(),
+      txHash: log.transactionHash
+    })).reverse());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Start server
 async function startServer() {
   if (!await initializeBlockchain()) {
