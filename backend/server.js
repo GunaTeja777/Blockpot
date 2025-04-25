@@ -11,6 +11,10 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 const PORT = process.env.PORT || 3001;
+const cors = require('cors');
+app.use(cors()); // Enable CORS for all routes
+
+
 
 const clients = new Set();
 const logPath = process.env.COWRIE_LOG_PATH || '/home/cowrie/cowrie/var/log/cowrie/cowrie.log';
