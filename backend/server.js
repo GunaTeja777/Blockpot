@@ -227,7 +227,9 @@ wss.on('connection', (ws, req) => {
   }));
 });
 
-// API Endpoints
+/// [Previous imports and setup...]
+
+// API Endpoints - corrected
 app.get('/health', async (req, res) => {
   try {
     const network = await provider.getNetwork();
@@ -257,6 +259,20 @@ app.get('/logs', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// Example of a properly parameterized route
+app.get('/logs/:txHash', async (req, res) => {
+  try {
+    const log = await contract.queryFilter(
+      contract.filters.LogStored(null, null, null, null, req.params.txHash)
+    );
+    res.json(log);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// [Rest of your server code...]
 
 // Start server
 async function startServer() {
