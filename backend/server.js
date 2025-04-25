@@ -64,7 +64,7 @@ async function initializeBlockchain() {
   try {
     const contractJson = JSON.parse(fs.readFileSync(
       path.join(__dirname, 'blockchain', 'abi', 'LogStorage.json')
-    );
+    ));
     
     if (!contractJson.abi) throw new Error("ABI not found");
     
