@@ -8,327 +8,269 @@ const path = require('path');
 const { exec } = require('child_process');
 const cors = require('cors');
 
+// Initialize Express app
 const app = express();
 const server = http.createServer(app);
 
 // Enhanced CORS configuration
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
-}));
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Enable preflight for all routes
 
 // WebSocket Server
-const wss = new WebSocket.Server({
+const wss = new WebSocket.Server({ 
   server,
-  clientTracking: true
+  perMessageDeflate: {
+    zlibDeflateOptions: {
+      chunkSize: 1024,
+      memLevel: 7,
+      level: 3
+    },
+    zlibInflateOptions: {
+      chunkSize: 10 * 1024
+    },
+    clientNoContextTakeover: true,
+    serverNoContextTakeover: true,
+    threshold: 1024
+  }
 });
 
 const PORT = process.env.PORT || 3001;
 const clients = new Set();
-const logPath = process.env.COWRIE_LOG_PATH || '/home/anand/cowrie/var/log/cowrie/cowrie.log';
+const logPath = process.env.COWRIE_LOG_PATH || '/home/cowrie/cowrie/var/log/cowrie/cowrie.log';
 
 let provider, wallet, contract;
 
 // Initialize blockchain connection
 async function initializeBlockchain() {
-    try {
-        const contractJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'blockchain', 'abi', 'LogStorage.json')));
-        if (!contractJson.abi) throw new Error("ABI property not found in contract JSON");
-
-        const ABI = contractJson.abi;
-
-        const requiredEnvVars = [
-            'SEPOLIA_RPC_URL',
-            'PRIVATE_KEY',
-            'CONTRACT_ADDRESS'
-        ];
-
-        const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
-        if (missingVars.length > 0) {
-            throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
-        }
-
-        provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
-        wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
-        contract = new ethers.Contract(process.env.CONTRACT_ADDRESS, ABI, wallet);
-
-        const code = await provider.getCode(process.env.CONTRACT_ADDRESS);
-        if (code === '0x') throw new Error("No code at contract address");
-
-        console.log('✅ Blockchain components initialized');
-        return true;
-    } catch (err) {
-        console.error('❌ Blockchain initialization failed:', err);
-        return false;
-    }
-}
-
-// Process Cowrie log lines
-function processCowrieLog(line) {
-    try {
-        // Command processing
-        if (line.includes('CMD')) {
-            const cmdMatch = line.match(/CMD\s+\(([^)]+)\)\s+(.+)/);
-            if (cmdMatch) {
-                const [_, ip, command] = cmdMatch;
-                return {
-                    type: 'command',
-                    ip,
-                    content: command,
-                    timestamp: new Date().toISOString(),
-                    threatLevel: 'high'
-                };
-            }
-        }
-
-        // Login attempts
-        if (line.includes('login attempt')) {
-            const loginMatch = line.match(/(\d+\.\d+\.\d+\.\d+).*?login attempt.*?\[(.*?)\]/);
-            if (loginMatch) {
-                const [_, ip, credentials] = loginMatch;
-                return {
-                    type: 'login_attempt',
-                    ip,
-                    content: `Used credentials: ${credentials}`,
-                    timestamp: new Date().toISOString(),
-                    threatLevel: 'critical'
-                };
-            }
-        }
-
-        // Password hashes
-        if (line.includes('Password found:')) {
-            const hashMatch = line.match(/Password found: '(.*?)'/);
-            if (hashMatch) {
-                return {
-                    type: 'hash_capture',
-                    ip: 'N/A',
-                    content: `Hash: ${hashMatch[1]}`,
-                    timestamp: new Date().toISOString(),
-                    threatLevel: 'critical'
-                };
-            }
-        }
-
-        // File downloads
-        if (line.includes('File download')) {
-            const downloadMatch = line.match(/File download.*?\((.*?)\)/);
-            if (downloadMatch) {
-                return {
-                    type: 'download',
-                    ip: 'N/A',
-                    content: `Downloaded file: ${downloadMatch[1]}`,
-                    timestamp: new Date().toISOString(),
-                    threatLevel: 'medium'
-                };
-            }
-        }
-    } catch (err) {
-        console.error('Error processing log line:', err);
-    }
-    return null;
-}
-
-// Broadcast events to all connected clients
-function broadcastEvent(event) {
-    const message = JSON.stringify(event);
-    clients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-            client.send(message);
-        }
-    });
-}
-
-// Store log on blockchain
-async function storeOnBlockchain(logData) {
-    try {
-        const tx = await contract.storeLog(
-            logData.ip || 'unknown',
-            logData.content,
-            logData.threatLevel,
-            Math.floor(new Date(logData.timestamp).getTime() / 1000
-        ));
-        
-        const receipt = await tx.wait();
-        
-        return {
-            success: true,
-            txHash: tx.hash,
-            blockNumber: receipt.blockNumber,
-            timestamp: new Date().toISOString()
-        };
-    } catch (err) {
-        console.error('❌ Blockchain storage failed:', err.message);
-        return {
-            success: false,
-            error: err.message
-        };
-    }
-}
-
-// Tail Cowrie log file for real-time processing
-function tailCowrieLogs() {
-    console.log(`👀 Starting to watch Cowrie logs at ${logPath}`);
+  try {
+    const contractJson = JSON.parse(fs.readFileSync(
+      path.join(__dirname, 'blockchain', 'abi', 'LogStorage.json')
+    ));
     
-    const tailProcess = exec(`tail -F ${logPath}`);
+    if (!contractJson.abi) throw new Error("ABI not found");
+    
+    const requiredVars = ['SEPOLIA_RPC_URL', 'PRIVATE_KEY', 'CONTRACT_ADDRESS'];
+    const missingVars = requiredVars.filter(v => !process.env[v]);
+    
+    if (missingVars.length) {
+      throw new Error(`Missing: ${missingVars.join(', ')}`);
+    }
 
-    tailProcess.stdout.on('data', async (data) => {
-        const lines = data.toString().split('\n');
-        for (const line of lines) {
-            if (line.trim()) {
-                const logEvent = processCowrieLog(line);
-                if (logEvent) {
-                    broadcastEvent({
-                        event: 'new_log',
-                        data: logEvent,
-                        blockchainStatus: 'pending'
-                    });
+    provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
+    wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+    contract = new ethers.Contract(process.env.CONTRACT_ADDRESS, contractJson.abi, wallet);
 
-                    try {
-                        const blockchainResult = await storeOnBlockchain(logEvent);
-                        if (blockchainResult.success) {
-                            broadcastEvent({
-                                event: 'blockchain_confirmation',
-                                data: {
-                                    ...logEvent,
-                                    txHash: blockchainResult.txHash,
-                                    blockNumber: blockchainResult.blockNumber,
-                                    blockchainTimestamp: blockchainResult.timestamp
-                                },
-                                blockchainStatus: 'confirmed'
-                            });
-                        }
-                    } catch (err) {
-                        console.error('Error storing log on blockchain:', err);
-                    }
-                }
-            }
-        }
-    });
+    const code = await provider.getCode(process.env.CONTRACT_ADDRESS);
+    if (code === '0x') throw new Error("Contract not deployed");
 
-    tailProcess.stderr.on('data', (data) => {
-        console.error('Tail process error:', data.toString());
-    });
-
-    tailProcess.on('close', (code) => {
-        console.error(`Tail process exited with code ${code}`);
-        setTimeout(tailCowrieLogs, 5000);
-    });
+    console.log('✅ Blockchain initialized');
+    return true;
+  } catch (err) {
+    console.error('❌ Blockchain init failed:', err);
+    return false;
+  }
 }
 
-// WebSocket connection handler
-wss.on('connection', (ws, req) => {
-    console.log('New frontend connection from:', req.headers.origin);
-    clients.add(ws);
+// Process log lines
+function processCowrieLog(line) {
+  try {
+    if (line.includes('CMD')) {
+      const cmdMatch = line.match(/CMD\s+\(([^)]+)\)\s+(.+)/);
+      if (cmdMatch) {
+        const [_, ip, command] = cmdMatch;
+        return {
+          type: 'command',
+          ip,
+          content: command,
+          timestamp: new Date().toISOString(),
+          threatLevel: 'high'
+        };
+      }
+    }
 
-    // Heartbeat
-    const heartbeat = () => {
-        if (ws.isAlive === false) return ws.terminate();
-        ws.isAlive = false;
-        ws.ping();
+    if (line.includes('login attempt')) {
+      const loginMatch = line.match(/(\d+\.\d+\.\d+\.\d+).*?login attempt.*?\[(.*?)\]/);
+      if (loginMatch) {
+        const [_, ip, credentials] = loginMatch;
+        return {
+          type: 'login_attempt',
+          ip,
+          content: `Used credentials: ${credentials}`,
+          timestamp: new Date().toISOString(),
+          threatLevel: 'critical'
+        };
+      }
+    }
+
+    if (line.includes('Password found:')) {
+      const hashMatch = line.match(/Password found: '(.*?)'/);
+      if (hashMatch) {
+        return {
+          type: 'hash_capture',
+          ip: 'N/A',
+          content: `Hash: ${hashMatch[1]}`,
+          timestamp: new Date().toISOString(),
+          threatLevel: 'critical'
+        };
+      }
+    }
+  } catch (err) {
+    console.error('Log processing error:', err);
+  }
+  return null;
+}
+
+// Broadcast to all clients
+function broadcast(event, data) {
+  const message = JSON.stringify({ event, data });
+  clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  });
+}
+
+// Store on blockchain
+async function storeOnBlockchain(logData) {
+  try {
+    const tx = await contract.storeLog(
+      logData.ip || 'unknown',
+      logData.content,
+      logData.threatLevel,
+      Math.floor(Date.now() / 1000)
+    );
+    const receipt = await tx.wait();
+    return {
+      success: true,
+      txHash: tx.hash,
+      blockNumber: receipt.blockNumber
     };
+  } catch (err) {
+    console.error('Blockchain store failed:', err);
+    return { success: false, error: err.message };
+  }
+}
 
-    ws.isAlive = true;
-    const interval = setInterval(heartbeat, 30000);
-
-    ws.on('pong', () => {
-        ws.isAlive = true;
+// Tail logs
+function tailCowrieLogs() {
+  const tailProcess = exec(`tail -F ${logPath}`);
+  
+  tailProcess.stdout.on('data', async data => {
+    data.toString().split('\n').forEach(async line => {
+      const logEvent = processCowrieLog(line);
+      if (logEvent) {
+        broadcast('new_log', logEvent);
+        const result = await storeOnBlockchain(logEvent);
+        if (result.success) {
+          broadcast('blockchain_confirmation', {
+            ...logEvent,
+            txHash: result.txHash,
+            blockNumber: result.blockNumber
+          });
+        }
+      }
     });
+  });
 
-    ws.on('close', () => {
-        clearInterval(interval);
-        clients.delete(ws);
-        console.log('Frontend disconnected');
-    });
+  tailProcess.on('exit', code => {
+    console.log(`Tail process exited (${code}), restarting...`);
+    setTimeout(tailCowrieLogs, 1000);
+  });
+}
 
-    ws.on('error', (error) => {
-        console.error('WebSocket error:', error);
-        clients.delete(ws);
-    });
+// WebSocket connection
+wss.on('connection', (ws, req) => {
+  console.log('New connection from:', req.headers.origin);
+  clients.add(ws);
 
-    ws.send(JSON.stringify({
-        event: 'connection_established',
-        message: 'Connected to Cowrie log server',
-        timestamp: new Date().toISOString()
-    }));
+  // Heartbeat
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
+  const interval = setInterval(() => {
+    if (!ws.isAlive) return ws.terminate();
+    ws.isAlive = false;
+    ws.ping();
+  }, 30000);
+
+  ws.on('close', () => {
+    clearInterval(interval);
+    clients.delete(ws);
+  });
+
+  ws.on('error', err => {
+    console.error('WS error:', err);
+    clients.delete(ws);
+  });
+
+  ws.send(JSON.stringify({
+    event: 'connected',
+    timestamp: new Date().toISOString()
+  }));
 });
 
 // API Endpoints
 app.get('/health', async (req, res) => {
-    try {
-        const network = await provider.getNetwork();
-        res.status(200).json({
-            status: 'healthy',
-            clients: clients.size,
-            network: {
-                name: network.name,
-                chainId: network.chainId
-            },
-            lastBlock: await provider.getBlockNumber()
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+  try {
+    const network = await provider.getNetwork();
+    res.json({
+      status: 'ok',
+      network: network.name,
+      chainId: network.chainId,
+      blockNumber: await provider.getBlockNumber()
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/logs', async (req, res) => {
-    try {
-        const eventFilter = contract.filters.LogStored();
-        const logs = await contract.queryFilter(eventFilter, -5000);
-        
-        const formattedLogs = logs.map(log => ({
-            id: `${log.args.timestamp}-${log.transactionHash}`,
-            type: log.args.command.includes('Used credentials') ? 'login_attempt' : 
-                 log.args.command.includes('Hash:') ? 'hash_capture' :
-                 log.args.command.includes('Downloaded file') ? 'download' : 'command',
-            ip: log.args.ip,
-            content: log.args.command,
-            threatLevel: log.args.threatLevel,
-            timestamp: new Date(log.args.timestamp * 1000).toISOString(),
-            txHash: log.transactionHash,
-            blockNumber: log.blockNumber,
-            blockchainStatus: 'confirmed'
-        })).reverse();
-        
-        res.status(200).json(formattedLogs.slice(0, 100));
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+  try {
+    const logs = await contract.queryFilter('LogStored', -1000);
+    res.json(logs.map(log => ({
+      id: log.transactionHash,
+      type: log.args.command.includes('Used credentials') ? 'login_attempt' : 'command',
+      ip: log.args.ip,
+      content: log.args.command,
+      timestamp: new Date(log.args.timestamp * 1000).toISOString(),
+      txHash: log.transactionHash
+    })).reverse());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Start server
 async function startServer() {
-    console.log('Initializing server...');
-    
-    const blockchainInitialized = await initializeBlockchain();
-    if (!blockchainInitialized) {
-        console.error('Cannot start server without blockchain connection');
-        process.exit(1);
-    }
+  if (!await initializeBlockchain()) {
+    process.exit(1);
+  }
 
-    server.listen(PORT, '0.0.0.0', () => {
-        console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
-        console.log(`📡 WebSocket server running on ws://0.0.0.0:${PORT}`);
-        tailCowrieLogs();
-    });
-
-    server.on('error', (error) => {
-        if (error.code === 'EADDRINUSE') {
-            console.error(`Port ${PORT} is already in use`);
-        } else {
-            console.error('Server error:', error);
-        }
-        process.exit(1);
-    });
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on http://0.0.0.0:${PORT}`);
+    tailCowrieLogs();
+  });
 }
 
-console.log("Environment Variables:");
-console.log("SEPOLIA_RPC_URL:", process.env.SEPOLIA_RPC_URL ? "✅" : "❌");
-console.log("CONTRACT_ADDRESS:", process.env.CONTRACT_ADDRESS ? "✅" : "❌");
-console.log("COWRIE_LOG_PATH:", fs.existsSync(logPath) ? "✅" : "❌", logPath);
-
 startServer().catch(err => {
-    console.error('Failed to start server:', err);
-    process.exit(1);
+  console.error('Server failed:', err);
+  process.exit(1);
 });

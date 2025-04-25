@@ -1,145 +1,90 @@
-import React, { useEffect, useState } from "react";
-import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
-import Dashboard from "./pages/Dashboard";
-import Login from "./pages/Login";
-import NotFound from "./pages/NotFound";
-import FakeAdmin from "./pages/FakeAdmin";
-import FakeTerminal from "./components/FakeTerminal";
-import { checkAuthStatus } from "./services/auth";
-import { webSocketService } from "./services/websocket";
+import React, { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import { webSocketService } from './services/websocket';
+import { fetchLogs, checkHealth } from './services/api';
+import Dashboard from './pages/Dashboard';
+import Login from './pages/Login';
+import Admin from './pages/Admin';
+import Terminal from './components/Terminal';
+import NotFound from './pages/NotFound';
+
+function AppWrapper() {
+  return (
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  );
+}
 
 function App() {
   const [logs, setLogs] = useState([]);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState("disconnected");
+  const [connection, setConnection] = useState('disconnected');
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const verifyAuth = async () => {
-      try {
-        const authStatus = await checkAuthStatus();
-        setIsAuthenticated(authStatus);
-        if (!authStatus) {
-          navigate("/");
+    // Initialize connection
+    webSocketService.connect();
+    
+    // Setup listeners
+    const listeners = [
+      webSocketService.addListener('connection', ({ status }) => {
+        setConnection(status);
+        if (status === 'connected') {
+          fetchInitialLogs();
         }
+      }),
+      
+      webSocketService.addListener('new_log', (log) => {
+        setLogs(prev => [log, ...prev.slice(0, 99)]);
+      }),
+      
+      webSocketService.addListener('error', (err) => {
+        setError(err.message || 'WebSocket error');
+      })
+    ];
+
+    // Initial data load
+    const fetchInitialLogs = async () => {
+      try {
+        const initialLogs = await fetchLogs();
+        setLogs(initialLogs);
       } catch (err) {
-        console.error("Auth verification failed:", err);
-        setError("Failed to verify authentication status");
+        setError('Failed to load initial logs');
       }
     };
 
-    verifyAuth();
-
-    webSocketService.connect();
-
-    const removeLogListener = webSocketService.addListener(
-      "new_log",
-      (newLog) => {
-        setLogs((prevLogs) => [newLog, ...prevLogs.slice(0, 99)]);
-      }
-    );
-
-    const removeStatusListener = webSocketService.addListener(
-      "connection_change",
-      (status) => {
-        setConnectionStatus(status);
-        if (status === "disconnected") {
-          setError("WebSocket disconnected - attempting to reconnect...");
-        } else if (status === "connected") {
-          setError(null);
-        }
-      }
-    );
-
-    const removeErrorListener = webSocketService.addListener(
-      "error",
-      (error) => {
-        setError(`WebSocket error: ${error.message}`);
-      }
-    );
+    // Check health on startup
+    checkHealth().catch(err => {
+      setError('Backend unavailable');
+    });
 
     return () => {
-      removeLogListener();
-      removeStatusListener();
-      removeErrorListener();
+      listeners.forEach(remove => remove());
     };
   }, [navigate]);
 
-  const ProtectedRoute = ({ element: Element, ...rest }) => {
-    if (!isAuthenticated) {
-      return <Login setIsAuthenticated={setIsAuthenticated} setError={setError} />;
-    }
-    return <Element {...rest} />;
-  };
-
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
-      {/* Connection status indicator */}
-      <div
-        className={`fixed top-3 right-3 px-3 py-1 rounded-md text-xs font-medium ${
-          connectionStatus === "connected"
-            ? "bg-green-500 text-white"
-            : "bg-red-500 text-white"
-        } z-50`}
-      >
-        {connectionStatus === "connected" ? (
-          <span>Connected</span>
-        ) : (
-          <span>Disconnected</span>
-        )}
-      </div>
-
-      {/* Error banner */}
+    <div className="app">
       {error && (
-        <div className="fixed top-0 left-0 right-0 bg-red-500 text-white p-3 text-center z-50 flex justify-between items-center">
-          <span>{error}</span>
-          <button
-            onClick={() => setError(null)}
-            className="ml-4 border border-white px-2 py-1 rounded text-xs hover:bg-red-600 transition"
-          >
-            Dismiss
-          </button>
+        <div className="error-banner">
+          {error}
+          <button onClick={() => setError(null)}>×</button>
         </div>
       )}
+      
+      <div className={`connection-status ${connection}`}>
+        {connection === 'connected' ? '🟢' : '🔴'} {connection}
+      </div>
 
       <Routes>
-        <Route
-          path="/"
-          element={
-            isAuthenticated ? (
-              <Dashboard logs={logs} />
-            ) : (
-              <Login setIsAuthenticated={setIsAuthenticated} setError={setError} />
-            )
-          }
-        />
-        <Route
-          path="/dashboard"
-          element={<ProtectedRoute element={Dashboard} logs={logs} />}
-        />
-        <Route path="/admin" element={<FakeAdmin />} />
-        <Route
-          path="/terminal"
-          element={
-            <ProtectedRoute
-              element={FakeTerminal}
-              setIsAuthenticated={setIsAuthenticated}
-              setError={setError}
-            />
-          }
-        />
+        <Route path="/" element={<Dashboard logs={logs} />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/admin" element={<Admin />} />
+        <Route path="/terminal" element={<Terminal />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </div>
-  );
-}
-
-function AppWrapper() {
-  return (
-    <Router>
-      <App />
-    </Router>
   );
 }
 
