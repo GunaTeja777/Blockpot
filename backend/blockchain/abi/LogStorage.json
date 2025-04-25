@@ -1,16 +1,21 @@
 {
-  "abi": [
+"abi": [
+    {
+      "inputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
     {
       "anonymous": false,
       "inputs": [
         {
           "indexed": true,
-          "internalType": "uint256",
-          "name": "logId",
-          "type": "uint256"
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
         },
         {
-          "indexed": false,
+          "indexed": true,
           "internalType": "string",
           "name": "ip",
           "type": "string"
@@ -29,9 +34,15 @@
         },
         {
           "indexed": false,
-          "internalType": "string",
+          "internalType": "uint256",
           "name": "timestamp",
-          "type": "string"
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "logId",
+          "type": "bytes32"
         }
       ],
       "name": "LogStored",
@@ -63,9 +74,14 @@
           "type": "string"
         },
         {
-          "internalType": "string",
+          "internalType": "uint256",
           "name": "",
-          "type": "string"
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
         }
       ],
       "stateMutability": "view",
@@ -110,9 +126,27 @@
           "type": "string"
         },
         {
-          "internalType": "string",
+          "internalType": "uint256",
           "name": "timestamp",
-          "type": "string"
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "id",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
         }
       ],
       "stateMutability": "view",
@@ -136,13 +170,19 @@
           "type": "string"
         },
         {
-          "internalType": "string",
+          "internalType": "uint256",
           "name": "timestamp",
-          "type": "string"
+          "type": "uint256"
         }
       ],
       "name": "storeLog",
-      "outputs": [],
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
       "stateMutability": "nonpayable",
       "type": "function"
     }
