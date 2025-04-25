@@ -1,33 +1,36 @@
-import React from "react";
+import { useEffect, useState } from 'react';
+import { webSocketService } from '../services/websocket';
+import { fetchInitialLogs } from '../services/api';
 
-const Dashboard = ({ logs }) => {
+export default function Dashboard() {
+  const [logs, setLogs] = useState([]);
+
+  useEffect(() => {
+    // Fetch initial logs
+    fetchInitialLogs().then(setLogs);
+
+    // Subscribe to real-time updates
+    const removeListener = webSocketService.addListener('new_log', (log) => {
+      setLogs(prev => [log, ...prev.slice(0, 99)]); // Keep last 100 logs
+    });
+
+    return () => {
+      removeListener();
+    };
+  }, []);
+
   return (
-    <div className="p-6 bg-gray-950 text-white min-h-screen">
-      <h1 className="text-2xl font-bold mb-4">Cowrie Logs & Blockchain Events</h1>
-      <table className="w-full border border-gray-700">
-        <thead>
-          <tr className="bg-gray-800 text-left">
-            <th className="p-2 border">Timestamp</th>
-            <th className="p-2 border">IP</th>
-            <th className="p-2 border">Command</th>
-            <th className="p-2 border">Threat</th>
-          </tr>
-        </thead>
-        <tbody>
-          {logs.map((log, index) => (
-            <tr key={index} className="border-t border-gray-700">
-              <td className="p-2">{log.timestamp}</td>
-              <td className="p-2">{log.ip}</td>
-              <td className="p-2 text-yellow-400">{log.command}</td>
-              <td className={`p-2 ${log.threatLevel > 5 ? "text-red-500" : "text-green-400"}`}>
-                {log.threatLevel}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="dashboard">
+      <h1>Security Logs</h1>
+      <div className="logs-container">
+        {logs.map((log, index) => (
+          <div key={index} className={`log-item threat-${log.threatLevel}`}>
+            <div className="log-timestamp">{new Date(log.timestamp).toLocaleString()}</div>
+            <div className="log-ip">{log.ip}</div>
+            <div className="log-command">{log.command}</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
-};
-
-export default Dashboard;
+}

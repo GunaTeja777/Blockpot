@@ -102,6 +102,15 @@ app.get('/health', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+// Add this near your other route handlers
+app.get('/logs', async (req, res) => {
+    try {
+      const logs = await contract.getLogs(); // You'll need to implement this in your contract
+      res.status(200).json(logs);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
 
 // Start server
 async function startServer() {
