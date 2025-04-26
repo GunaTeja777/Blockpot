@@ -5,11 +5,16 @@ export const checkAuthStatus = async () => {
     });
     
     if (!response.ok) {
+      // Handle 404 specifically
+      if (response.status === 404) {
+        console.error('Auth endpoint not found');
+        return false;
+      }
       throw new Error('Not authenticated');
     }
     
     const data = await response.json();
-    return data.authenticated || false;
+    return data.authenticated;
   } catch (error) {
     console.error('Authentication check error:', error);
     return false;

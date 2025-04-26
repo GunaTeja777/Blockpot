@@ -80,7 +80,7 @@ function authenticateToken(req, res, next) {
     next();
   });
 }
-app.use(cookieParser());
+
 // Initialize blockchain connection
 async function initializeBlockchain() {
     try {
@@ -337,14 +337,12 @@ wss.on('connection', (ws, req) => {
 
 
 // Authentication endpoints
+// Update your auth endpoints to use the ADMIN_PASSWORD from .env
 app.post('/api/auth/login', async (req, res) => {
     try {
       const { password } = req.body;
       
-      // Compare with hashed password (in production, store hash in DB)
-      const isMatch = password === process.env.ADMIN_PASSWORD;
-      
-      if (!isMatch) {
+      if (password !== process.env.ADMIN_PASSWORD) {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
   
