@@ -8,6 +8,7 @@
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "tail": "^2.2.6",
+    "tail-forever": "^0.3.16",
     "ws": "^8.18.1"
   }
 }
