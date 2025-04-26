@@ -13,10 +13,10 @@ const server = http.createServer(app);
 
 // Enhanced CORS configuration
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  methods: ['GET', 'POST', 'OPTIONS'],
-  credentials: true
-}));
+    origin: ['http://localhost:5173', 'http://localhost:3000'], // ✅ Allow both
+    methods: ['GET', 'POST', 'OPTIONS'],
+    credentials: true
+  }));
 
 // WebSocket Server
 const wss = new WebSocket.Server({
