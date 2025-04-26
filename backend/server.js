@@ -228,16 +228,18 @@ async function storeOnBlockchain(logData) {
     }
 }
 
+
+const Tail = require('tail-forever'); 
 // Tail Cowrie log file for real-time processing
 function tailCowrieLogs() {
     console.log(`👀 Starting to watch Cowrie logs at ${logPath}`);
     
-    const tail = new tail.Tail(logPath, { 
+    const tailInstance = new Tail(logPath, { 
         interval: 500,
         fromBeginning: false 
     });
 
-    tail.on('line', async (line) => {
+    tailInstance.on('line', async (line) => {
         if (line.trim()) {
             const logEvent = processCowrieLog(line);
             if (logEvent) {
@@ -276,12 +278,11 @@ function tailCowrieLogs() {
         }
     });
 
-    tail.on('error', (error) => {
+    tailInstance.on('error', (error) => {
         console.error('Tail error:', error);
         setTimeout(tailCowrieLogs, 5000);
     });
 }
-
 // WebSocket connection handler
 wss.on('connection', (ws, req) => {
     console.log('New frontend connection from:', req.headers.origin);
