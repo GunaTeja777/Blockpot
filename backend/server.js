@@ -7,21 +7,51 @@ const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
 const cors = require('cors');
+const tail = require('tail-forever');
 
 const app = express();
 const server = http.createServer(app);
 
 // Enhanced CORS configuration
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+const corsOptions = {
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      process.env.FRONTEND_URL, 
+      'http://localhost:3000',
+      'http://127.0.0.1:3000'
+    ];
+    
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
-}));
+};
+
+app.use(cors(corsOptions));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // WebSocket Server
 const wss = new WebSocket.Server({
   server,
-  clientTracking: true
+  clientTracking: true,
+  perMessageDeflate: {
+    zlibDeflateOptions: {
+      chunkSize: 1024,
+      memLevel: 7,
+      level: 3
+    },
+    zlibInflateOptions: {
+      chunkSize: 10 * 1024
+    },
+    threshold: 1024,
+    concurrencyLimit: 10
+  }
 });
 
 const PORT = process.env.PORT || 3001;
@@ -33,10 +63,13 @@ let provider, wallet, contract;
 // Initialize blockchain connection
 async function initializeBlockchain() {
     try {
-        const contractJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'blockchain', 'abi', 'LogStorage.json')));
-        if (!contractJson.abi) throw new Error("ABI property not found in contract JSON");
+        const contractPath = path.join(__dirname, 'blockchain', 'abi', 'LogStorage.json');
+        if (!fs.existsSync(contractPath)) {
+            throw new Error("Contract ABI file not found");
+        }
 
-        const ABI = contractJson.abi;
+        const contractJson = JSON.parse(fs.readFileSync(contractPath));
+        if (!contractJson.abi) throw new Error("ABI property not found in contract JSON");
 
         const requiredEnvVars = [
             'SEPOLIA_RPC_URL',
@@ -51,7 +84,7 @@ async function initializeBlockchain() {
 
         provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
         wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
-        contract = new ethers.Contract(process.env.CONTRACT_ADDRESS, ABI, wallet);
+        contract = new ethers.Contract(process.env.CONTRACT_ADDRESS, contractJson.abi, wallet);
 
         const code = await provider.getCode(process.env.CONTRACT_ADDRESS);
         if (code === '0x') throw new Error("No code at contract address");
@@ -135,7 +168,12 @@ function broadcastEvent(event) {
     const message = JSON.stringify(event);
     clients.forEach(client => {
         if (client.readyState === WebSocket.OPEN) {
-            client.send(message);
+            client.send(message, (err) => {
+                if (err) {
+                    console.error('WebSocket send error:', err);
+                    clients.delete(client);
+                }
+            });
         }
     });
 }
@@ -171,48 +209,52 @@ async function storeOnBlockchain(logData) {
 function tailCowrieLogs() {
     console.log(`👀 Starting to watch Cowrie logs at ${logPath}`);
     
-    const tailProcess = exec(`tail -F ${logPath}`);
+    const tail = new tail.Tail(logPath, { 
+        interval: 500,
+        fromBeginning: false 
+    });
 
-    tailProcess.stdout.on('data', async (data) => {
-        const lines = data.toString().split('\n');
-        for (const line of lines) {
-            if (line.trim()) {
-                const logEvent = processCowrieLog(line);
-                if (logEvent) {
-                    broadcastEvent({
-                        event: 'new_log',
-                        data: logEvent,
-                        blockchainStatus: 'pending'
-                    });
+    tail.on('line', async (line) => {
+        if (line.trim()) {
+            const logEvent = processCowrieLog(line);
+            if (logEvent) {
+                broadcastEvent({
+                    event: 'new_log',
+                    data: logEvent,
+                    blockchainStatus: 'pending'
+                });
 
-                    try {
-                        const blockchainResult = await storeOnBlockchain(logEvent);
-                        if (blockchainResult.success) {
-                            broadcastEvent({
-                                event: 'blockchain_confirmation',
-                                data: {
-                                    ...logEvent,
-                                    txHash: blockchainResult.txHash,
-                                    blockNumber: blockchainResult.blockNumber,
-                                    blockchainTimestamp: blockchainResult.timestamp
-                                },
-                                blockchainStatus: 'confirmed'
-                            });
-                        }
-                    } catch (err) {
-                        console.error('Error storing log on blockchain:', err);
+                try {
+                    const blockchainResult = await storeOnBlockchain(logEvent);
+                    if (blockchainResult.success) {
+                        broadcastEvent({
+                            event: 'blockchain_confirmation',
+                            data: {
+                                ...logEvent,
+                                txHash: blockchainResult.txHash,
+                                blockNumber: blockchainResult.blockNumber,
+                                blockchainTimestamp: blockchainResult.timestamp
+                            },
+                            blockchainStatus: 'confirmed'
+                        });
                     }
+                } catch (err) {
+                    console.error('Error storing log on blockchain:', err);
+                    broadcastEvent({
+                        event: 'blockchain_error',
+                        data: {
+                            ...logEvent,
+                            error: err.message
+                        },
+                        blockchainStatus: 'failed'
+                    });
                 }
             }
         }
     });
 
-    tailProcess.stderr.on('data', (data) => {
-        console.error('Tail process error:', data.toString());
-    });
-
-    tailProcess.on('close', (code) => {
-        console.error(`Tail process exited with code ${code}`);
+    tail.on('error', (error) => {
+        console.error('Tail error:', error);
         setTimeout(tailCowrieLogs, 5000);
     });
 }
@@ -224,7 +266,10 @@ wss.on('connection', (ws, req) => {
 
     // Heartbeat
     const heartbeat = () => {
-        if (ws.isAlive === false) return ws.terminate();
+        if (ws.isAlive === false) {
+            console.log('Terminating unresponsive connection');
+            return ws.terminate();
+        }
         ws.isAlive = false;
         ws.ping();
     };
@@ -234,6 +279,17 @@ wss.on('connection', (ws, req) => {
 
     ws.on('pong', () => {
         ws.isAlive = true;
+    });
+
+    ws.on('message', (message) => {
+        try {
+            const data = JSON.parse(message);
+            if (data.type === 'heartbeat') {
+                ws.send(JSON.stringify({ type: 'heartbeat', timestamp: new Date().toISOString() }));
+            }
+        } catch (err) {
+            console.error('Error processing client message:', err);
+        }
     });
 
     ws.on('close', () => {
@@ -250,7 +306,8 @@ wss.on('connection', (ws, req) => {
     ws.send(JSON.stringify({
         event: 'connection_established',
         message: 'Connected to Cowrie log server',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        clients: clients.size
     }));
 });
 
@@ -265,17 +322,23 @@ app.get('/health', async (req, res) => {
                 name: network.name,
                 chainId: network.chainId
             },
-            lastBlock: await provider.getBlockNumber()
+            lastBlock: await provider.getBlockNumber(),
+            contractAddress: contract.address,
+            walletAddress: wallet.address
         });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ 
+            status: 'unhealthy',
+            error: error.message 
+        });
     }
 });
 
 app.get('/logs', async (req, res) => {
     try {
+        const limit = parseInt(req.query.limit) || 100;
         const eventFilter = contract.filters.LogStored();
-        const logs = await contract.queryFilter(eventFilter, -5000);
+        const logs = await contract.queryFilter(eventFilter, -limit);
         
         const formattedLogs = logs.map(log => ({
             id: `${log.args.timestamp}-${log.transactionHash}`,
@@ -291,9 +354,34 @@ app.get('/logs', async (req, res) => {
             blockchainStatus: 'confirmed'
         })).reverse();
         
-        res.status(200).json(formattedLogs.slice(0, 100));
+        res.status(200).json(formattedLogs);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ 
+            error: error.message,
+            details: error.stack 
+        });
+    }
+});
+
+app.get('/blockchain/stats', async (req, res) => {
+    try {
+        const [blockNumber, balance, txCount] = await Promise.all([
+            provider.getBlockNumber(),
+            provider.getBalance(wallet.address),
+            provider.getTransactionCount(wallet.address)
+        ]);
+
+        res.status(200).json({
+            blockNumber,
+            walletBalance: ethers.formatEther(balance),
+            walletAddress: wallet.address,
+            transactionCount: txCount,
+            contractAddress: contract.address
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            error: error.message 
+        });
     }
 });
 
@@ -314,14 +402,21 @@ async function startServer() {
     });
 
     server.on('error', (error) => {
-        if (error.code === 'EADDRINUSE') {
-            console.error(`Port ${PORT} is already in use`);
-        } else {
-            console.error('Server error:', error);
-        }
+        console.error('Server error:', error);
         process.exit(1);
     });
 }
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+    console.log('Shutting down gracefully...');
+    wss.clients.forEach(client => client.close());
+    wss.close();
+    server.close(() => {
+        console.log('Server closed');
+        process.exit(0);
+    });
+});
 
 console.log("Environment Variables:");
 console.log("SEPOLIA_RPC_URL:", process.env.SEPOLIA_RPC_URL ? "✅" : "❌");
