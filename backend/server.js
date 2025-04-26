@@ -296,6 +296,17 @@ app.get('/logs', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+// Add this near other routes (e.g., after /health and /logs)
+app.get('/api/auth/verify', (req, res) => {
+    // Example: Check if user is authenticated (modify as needed)
+    const isAuthenticated = true; // Replace with real auth logic (JWT/session)
+    
+    if (isAuthenticated) {
+      res.status(200).json({ authenticated: true });
+    } else {
+      res.status(401).json({ authenticated: false });
+    }
+  });
 
 // Start server
 async function startServer() {
