@@ -1,43 +1,42 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
-const WS_BASE_URL = import.meta.env.VITE_WS_URL || '/ws';
+const API_BASE_URL = process.env.NODE_ENV === 'development' 
+  ? 'http://localhost:3001' 
+  : window.REACT_APP_API_URL || 'http://localhost:3001';
 
-// Helper function for API requests
-async function makeRequest(endpoint, options = {}) {
+export const fetchLogs = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-      },
-      ...options
+    const response = await fetch(`${API_BASE_URL}/logs`, {
+      credentials: 'include'
     });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-    }
-
+    if (!response.ok) throw new Error('Failed to fetch logs');
     return await response.json();
   } catch (error) {
-    console.error(`API request failed for ${endpoint}:`, error);
+    console.error('Error fetching logs:', error);
     throw error;
   }
-}
-
-export const fetchLogs = async (params = {}) => {
-  const query = new URLSearchParams(params).toString();
-  return makeRequest(`/logs?${query}`);
 };
 
 export const checkHealth = async () => {
-  return makeRequest('/health');
+  try {
+    const response = await fetch(`${API_BASE_URL}/health`, {
+      credentials: 'include'
+    });
+    if (!response.ok) throw new Error('Service unavailable');
+    return await response.json();
+  } catch (error) {
+    console.error('Health check failed:', error);
+    throw error;
+  }
 };
 
 export const fetchRecentAttacks = async (limit = 100) => {
-  return makeRequest(`/logs?limit=${limit}`);
-};
-
-export const fetchBlockchainStats = async () => {
-  return makeRequest('/blockchain/stats');
+  try {
+    const response = await fetch(`${API_BASE_URL}/logs?limit=${limit}`, {
+      credentials: 'include'
+    });
+    if (!response.ok) throw new Error('Failed to fetch recent attacks');
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching recent attacks:', error);
+    throw error;
+  }
 };

@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { login } from "../services/auth";
 
 const Login = ({ setIsAuthenticated, setError }) => {
   const [password, setPassword] = useState("");
@@ -10,19 +9,19 @@ const Login = ({ setIsAuthenticated, setError }) => {
   const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setError(null);
     
     try {
-      const response = await login(password);
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 800));
       
-      if (response.authenticated) {
+      if (password === "adminaccess") {
         setIsAuthenticated(true);
         navigate("/terminal");
       } else {
         setError("Incorrect password. Try again.");
       }
     } catch (err) {
-      setError(err.message || "Login failed. Please try again.");
+      setError("Login failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -35,7 +34,7 @@ const Login = ({ setIsAuthenticated, setError }) => {
         className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-lg shadow-md space-y-4 w-full max-w-md transition-all duration-200"
       >
         <h1 className="text-2xl font-bold text-center text-gray-800 dark:text-white">
-          Admin Login
+          Old Admin Login
         </h1>
         
         <div className="space-y-2">
@@ -46,7 +45,6 @@ const Login = ({ setIsAuthenticated, setError }) => {
             onChange={(e) => setPassword(e.target.value)}
             className="w-full p-3 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
             disabled={isLoading}
-            autoComplete="current-password"
           />
         </div>
         
