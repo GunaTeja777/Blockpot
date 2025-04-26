@@ -1,22 +1,20 @@
 export const checkAuthStatus = async () => {
   try {
     const response = await fetch('/api/auth/status', {
-      credentials: 'include'
+      credentials: 'include' // Important for cookies
     });
     
     if (!response.ok) {
-      // Handle 404 specifically
       if (response.status === 404) {
-        console.error('Auth endpoint not found');
+        console.error('Ensure backend is running on port 3001');
         return false;
       }
-      throw new Error('Not authenticated');
+      throw new Error('Auth check failed');
     }
     
-    const data = await response.json();
-    return data.authenticated;
+    return await response.json();
   } catch (error) {
-    console.error('Authentication check error:', error);
+    console.error('Auth error:', error);
     return false;
   }
 };
