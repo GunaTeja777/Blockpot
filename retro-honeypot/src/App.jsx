@@ -13,65 +13,106 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState("disconnected");
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  // Initialize WebSocket connection and authentication
   useEffect(() => {
-    const verifyAuth = async () => {
+    let isMounted = true;
+
+    const initializeApp = async () => {
       try {
+        // Check authentication status first
         const authStatus = await checkAuthStatus();
-        setIsAuthenticated(authStatus);
-        if (!authStatus) {
-          navigate("/");
+        if (isMounted) {
+          setIsAuthenticated(authStatus);
+          if (!authStatus) {
+            navigate("/login");
+          }
         }
+
+        // Initialize WebSocket connection
+        webSocketService.connect();
+
+        // Setup WebSocket listeners
+        const removeLogListener = webSocketService.addListener(
+          "new_log",
+          (newLog) => {
+            if (isMounted) {
+              setLogs((prevLogs) => [newLog.data, ...prevLogs.slice(0, 99)]);
+            }
+          }
+        );
+
+        const removeStatusListener = webSocketService.addListener(
+          "connection_change",
+          (status) => {
+            if (isMounted) {
+              setConnectionStatus(status);
+              if (status === "disconnected") {
+                setError("WebSocket disconnected - attempting to reconnect...");
+              } else if (status === "connected") {
+                setError(null);
+              }
+            }
+          }
+        );
+
+        const removeErrorListener = webSocketService.addListener(
+          "error",
+          (wsError) => {
+            if (isMounted) {
+              setError(`WebSocket error: ${wsError.message || wsError.toString()}`);
+            }
+          }
+        );
+
+        return () => {
+          removeLogListener();
+          removeStatusListener();
+          removeErrorListener();
+        };
       } catch (err) {
-        console.error("Auth verification failed:", err);
-        setError("Failed to verify authentication status");
+        if (isMounted) {
+          console.error("Initialization error:", err);
+          setError("Failed to initialize application");
+          setIsAuthenticated(false);
+          navigate("/login");
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
-    verifyAuth();
-
-    webSocketService.connect();
-
-    const removeLogListener = webSocketService.addListener(
-      "new_log",
-      (newLog) => {
-        setLogs((prevLogs) => [newLog, ...prevLogs.slice(0, 99)]);
-      }
-    );
-
-    const removeStatusListener = webSocketService.addListener(
-      "connection_change",
-      (status) => {
-        setConnectionStatus(status);
-        if (status === "disconnected") {
-          setError("WebSocket disconnected - attempting to reconnect...");
-        } else if (status === "connected") {
-          setError(null);
-        }
-      }
-    );
-
-    const removeErrorListener = webSocketService.addListener(
-      "error",
-      (error) => {
-        setError(`WebSocket error: ${error.message}`);
-      }
-    );
+    initializeApp();
 
     return () => {
-      removeLogListener();
-      removeStatusListener();
-      removeErrorListener();
+      isMounted = false;
+      webSocketService.disconnect();
     };
   }, [navigate]);
 
   const ProtectedRoute = ({ element: Element, ...rest }) => {
+    if (loading) {
+      return <div className="flex justify-center items-center h-screen">Loading...</div>;
+    }
+
     if (!isAuthenticated) {
       return <Login setIsAuthenticated={setIsAuthenticated} setError={setError} />;
     }
+
     return <Element {...rest} />;
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gray-100 dark:bg-gray-900">
+        <div className="text-xl">Initializing application...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
@@ -105,20 +146,25 @@ function App() {
 
       <Routes>
         <Route
+          path="/login"
+          element={
+            <Login setIsAuthenticated={setIsAuthenticated} setError={setError} />
+          }
+        />
+        <Route
           path="/"
           element={
-            isAuthenticated ? (
-              <Dashboard logs={logs} />
-            ) : (
-              <Login setIsAuthenticated={setIsAuthenticated} setError={setError} />
-            )
+            <ProtectedRoute element={Dashboard} logs={logs} />
           }
         />
         <Route
           path="/dashboard"
           element={<ProtectedRoute element={Dashboard} logs={logs} />}
         />
-        <Route path="/admin" element={<FakeAdmin />} />
+        <Route 
+          path="/admin" 
+          element={<ProtectedRoute element={FakeAdmin} />} 
+        />
         <Route
           path="/terminal"
           element={

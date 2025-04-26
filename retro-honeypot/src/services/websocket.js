@@ -3,21 +3,21 @@ class WebSocketService {
     this.socket = null;
     this.listeners = new Map();
     this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 10;
+    this.maxReconnectAttempts = 5;
     this.reconnectDelay = 1000;
     this.isManualClose = false;
     this.heartbeatInterval = null;
     this.pendingMessages = [];
+    
+    // Get config from window.APP_CONFIG
+    this.baseUrl = window.APP_CONFIG?.WS_URL || 'ws://localhost:3001';
   }
 
   connect() {
     if (this.socket || this.isManualClose) return;
 
-    const socketUrl = WS_BASE_URL.startsWith('/') 
-      ? `${window.location.origin.replace('http', 'ws')}${WS_BASE_URL}`
-      : WS_BASE_URL;
-
-    this.socket = new WebSocket(socketUrl);
+    console.log(`Connecting to WebSocket at ${this.baseUrl}`);
+    this.socket = new WebSocket(this.baseUrl);
 
     this.socket.onopen = () => {
       console.log('WebSocket connected');
@@ -162,5 +162,5 @@ class WebSocketService {
   }
 }
 
+// Singleton instance
 export const webSocketService = new WebSocketService();
-
