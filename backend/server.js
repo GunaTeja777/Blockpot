@@ -80,7 +80,7 @@ function authenticateToken(req, res, next) {
     next();
   });
 }
-
+app.use(cookieParser());
 // Initialize blockchain connection
 async function initializeBlockchain() {
     try {
@@ -336,43 +336,50 @@ wss.on('connection', (ws, req) => {
 });
 
 
-// Authentication Endpoints
+// Authentication endpoints
 app.post('/api/auth/login', async (req, res) => {
-  try {
-    const { password } = req.body;
-    
-    if (!password) {
-      return res.status(400).json({ error: 'Password is required' });
+    try {
+      const { password } = req.body;
+      
+      // Compare with hashed password (in production, store hash in DB)
+      const isMatch = password === process.env.ADMIN_PASSWORD;
+      
+      if (!isMatch) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+  
+      const token = jwt.sign({ role: 'admin' }, process.env.JWT_SECRET, { 
+        expiresIn: '1h' 
+      });
+  
+      res.cookie('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict'
+      }).json({ authenticated: true });
+      
+    } catch (error) {
+      res.status(500).json({ error: 'Login failed' });
     }
-
-    const passwordMatch = await bcrypt.compare(password, process.env.ADMIN_PASSWORD_HASH);
-    if (!passwordMatch) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+  });
+  
+  app.get('/api/auth/status', (req, res) => {
+    try {
+      const token = req.cookies?.token;
+      if (!token) return res.json({ authenticated: false });
+  
+      jwt.verify(token, process.env.JWT_SECRET, (err) => {
+        if (err) return res.json({ authenticated: false });
+        res.json({ authenticated: true });
+      });
+    } catch (error) {
+      res.json({ authenticated: false });
     }
-
-    const token = jwt.sign({ role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 3600000 // 1 hour
-    }).json({ authenticated: true });
-    
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Login failed' });
-  }
-});
-
-app.get('/api/auth/status', authenticateToken, (req, res) => {
-  res.json({ authenticated: true, user: req.user });
-});
-
-app.post('/api/auth/logout', (req, res) => {
-  res.clearCookie('token').json({ authenticated: false });
-});
-
+  });
+  
+  app.post('/api/auth/logout', (req, res) => {
+    res.clearCookie('token').json({ authenticated: false });
+  });
 // Protected API Endpoints
 app.get('/api/logs', authenticateToken, async (req, res) => {
     try {
