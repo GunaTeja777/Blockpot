@@ -8,6 +8,9 @@ const path = require('path');
 const { exec } = require('child_process');
 const cors = require('cors');
 const tail = require('tail-forever');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser');
 
 const app = express();
 const server = http.createServer(app);
@@ -35,6 +38,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // WebSocket Server
 const wss = new WebSocket.Server({
@@ -60,6 +64,23 @@ const logPath = process.env.COWRIE_LOG_PATH || '/home/anand/cowrie/var/log/cowri
 
 let provider, wallet, contract;
 
+// Authentication Middleware
+function authenticateToken(req, res, next) {
+  const token = req.cookies?.token || req.headers['authorization']?.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: 'Invalid or expired token' });
+    }
+    req.user = user;
+    next();
+  });
+}
+
 // Initialize blockchain connection
 async function initializeBlockchain() {
     try {
@@ -74,7 +95,9 @@ async function initializeBlockchain() {
         const requiredEnvVars = [
             'SEPOLIA_RPC_URL',
             'PRIVATE_KEY',
-            'CONTRACT_ADDRESS'
+            'CONTRACT_ADDRESS',
+            'JWT_SECRET',
+            'ADMIN_PASSWORD_HASH'
         ];
 
         const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
@@ -311,30 +334,46 @@ wss.on('connection', (ws, req) => {
     }));
 });
 
-// API Endpoints
-app.get('/health', async (req, res) => {
-    try {
-        const network = await provider.getNetwork();
-        res.status(200).json({
-            status: 'healthy',
-            clients: clients.size,
-            network: {
-                name: network.name,
-                chainId: network.chainId
-            },
-            lastBlock: await provider.getBlockNumber(),
-            contractAddress: contract.address,
-            walletAddress: wallet.address
-        });
-    } catch (error) {
-        res.status(500).json({ 
-            status: 'unhealthy',
-            error: error.message 
-        });
+
+// Authentication Endpoints
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { password } = req.body;
+    
+    if (!password) {
+      return res.status(400).json({ error: 'Password is required' });
     }
+
+    const passwordMatch = await bcrypt.compare(password, process.env.ADMIN_PASSWORD_HASH);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign({ role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 3600000 // 1 hour
+    }).json({ authenticated: true });
+    
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Login failed' });
+  }
 });
 
-app.get('/logs', async (req, res) => {
+app.get('/api/auth/status', authenticateToken, (req, res) => {
+  res.json({ authenticated: true, user: req.user });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  res.clearCookie('token').json({ authenticated: false });
+});
+
+// Protected API Endpoints
+app.get('/api/logs', authenticateToken, async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 100;
         const eventFilter = contract.filters.LogStored();
@@ -363,27 +402,7 @@ app.get('/logs', async (req, res) => {
     }
 });
 
-app.get('/blockchain/stats', async (req, res) => {
-    try {
-        const [blockNumber, balance, txCount] = await Promise.all([
-            provider.getBlockNumber(),
-            provider.getBalance(wallet.address),
-            provider.getTransactionCount(wallet.address)
-        ]);
-
-        res.status(200).json({
-            blockNumber,
-            walletBalance: ethers.formatEther(balance),
-            walletAddress: wallet.address,
-            transactionCount: txCount,
-            contractAddress: contract.address
-        });
-    } catch (error) {
-        res.status(500).json({ 
-            error: error.message 
-        });
-    }
-});
+// [Keep all your existing WebSocket and server startup code]
 
 // Start server
 async function startServer() {

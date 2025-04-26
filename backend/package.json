@@ -1,9 +1,12 @@
 {
   "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "ethers": "^6.13.5",
     "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
     "tail": "^2.2.6",
     "ws": "^8.18.1"
   }
