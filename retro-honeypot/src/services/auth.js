@@ -2,6 +2,7 @@ const API_BASE_URL = process.env.NODE_ENV === 'development'
   ? 'http://localhost:3001' 
   : window.REACT_APP_API_URL || 'http://localhost:3001';
 
+// Fetch logs
 export const fetchLogs = async () => {
   try {
     const response = await fetch(`${API_BASE_URL}/api/logs`, {
@@ -17,6 +18,7 @@ export const fetchLogs = async () => {
   }
 };
 
+// Health check
 export const checkHealth = async () => {
   try {
     const response = await fetch(`${API_BASE_URL}/api/health`, {
@@ -32,6 +34,7 @@ export const checkHealth = async () => {
   }
 };
 
+// Fetch recent attacks with a limit
 export const fetchRecentAttacks = async (limit = 100) => {
   try {
     const response = await fetch(`${API_BASE_URL}/api/logs?limit=${limit}`, {
@@ -47,16 +50,17 @@ export const fetchRecentAttacks = async (limit = 100) => {
   }
 };
 
+// Check authentication status
 export const checkAuthStatus = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/status`, {
-      credentials: 'include'  // Make sure cookies are sent with the request
+    const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
+      credentials: 'include'  // Ensure credentials (cookies) are included in requests
     });
     if (!response.ok) {
       throw new Error(`Not authenticated: ${response.statusText}`);
     }
     const authStatus = await response.json();
-    return authStatus.isAuthenticated;
+    return authStatus.authenticated;
   } catch (error) {
     console.error('Authentication check failed:', error);
     return false;  // Return false if authentication check fails
