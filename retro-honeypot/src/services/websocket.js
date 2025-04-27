@@ -11,12 +11,11 @@ class WebSocketService {
   }
 
   getWebSocketUrl() {
-    // Use proxy in development
+    // Use proxy in development, and fallback URL for production
     if (process.env.NODE_ENV === 'development') {
       return 'ws://localhost:3001'; // Match your backend port
     }
-    // In production, use window variable or environment variable
-    return window.REACT_APP_WS_URL || 'ws://localhost:3001';
+    return window.REACT_APP_WS_URL || 'ws://localhost:3001'; // Fallback for production
   }
 
   connect() {
@@ -27,7 +26,7 @@ class WebSocketService {
     this.socket.onopen = () => {
       console.log('WebSocket connected');
       this.reconnectAttempts = 0;
-      
+
       // Start heartbeat
       this.heartbeatInterval = setInterval(() => {
         if (this.socket && this.socket.readyState === WebSocket.OPEN) {
@@ -59,11 +58,12 @@ class WebSocketService {
       }
 
       if (this.isManualClose) return;
-      
+
       console.log(`WebSocket disconnected (code: ${event.code}, reason: ${event.reason})`);
       this.socket = null;
       this.notifyListeners('connection_change', 'disconnected');
-      
+
+      // Reconnect logic
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
         setTimeout(() => {
           this.reconnectAttempts++;
@@ -109,6 +109,7 @@ class WebSocketService {
         return false;
       }
     }
+    console.warn('WebSocket is not open, message not sent.');
     return false;
   }
 
