@@ -279,6 +279,10 @@ app.get('/api/auth/verify', (req, res) => {
     // You can enhance this logic with sessions or JWT later
     res.status(200).json({ authenticated: true });
 });
+// Add this route for /auth/status
+app.get('/auth/status', (req, res) => {
+    res.status(200).json({ status: 'success', message: 'Authenticated' });
+});
 
 // Start server
 (async () => {

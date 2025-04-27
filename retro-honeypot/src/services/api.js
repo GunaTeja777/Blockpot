@@ -4,7 +4,7 @@ const API_BASE_URL = process.env.NODE_ENV === 'development'
 
 export const fetchLogs = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/logs`, {
+    const response = await fetch(`${API_BASE_URL}/api/logs`, {
       credentials: 'include'  // Ensure cookies are included in requests
     });
     if (!response.ok) {
@@ -19,7 +19,7 @@ export const fetchLogs = async () => {
 
 export const checkHealth = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/health`, {
+    const response = await fetch(`${API_BASE_URL}/api/health`, {
       credentials: 'include'  // Ensure cookies are included in requests
     });
     if (!response.ok) {
@@ -34,7 +34,7 @@ export const checkHealth = async () => {
 
 export const fetchRecentAttacks = async (limit = 100) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/logs?limit=${limit}`, {
+    const response = await fetch(`${API_BASE_URL}/api/logs?limit=${limit}`, {
       credentials: 'include'  // Ensure cookies are included in requests
     });
     if (!response.ok) {
