@@ -16,10 +16,11 @@ function App() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Verify the authentication status when the app is loaded
     const verifyAuth = async () => {
       try {
         const authStatus = await checkAuthStatus();
-        setIsAuthenticated(authStatus);
+        setIsAuthenticated(authStatus); // Update the auth state
         if (!authStatus) {
           navigate("/"); // Redirect to login page if not authenticated
         }
@@ -29,17 +30,18 @@ function App() {
       }
     };
 
+    // Perform authentication check on mount
     verifyAuth();
 
-    // WebSocket connection
+    // WebSocket connection setup
     webSocketService.connect();
 
-    // Listener for logs from WebSocket
+    // Listener for logs coming from WebSocket
     const removeLogListener = webSocketService.addListener("new_log", (newLog) => {
       setLogs((prevLogs) => [newLog, ...prevLogs.slice(0, 99)]);
     });
 
-    // Listener for connection status changes
+    // Listener for WebSocket connection status changes
     const removeStatusListener = webSocketService.addListener("connection_change", (status) => {
       setConnectionStatus(status);
       if (status === "disconnected") {
@@ -54,6 +56,7 @@ function App() {
       setError(`WebSocket error: ${error.message}`);
     });
 
+    // Clean up listeners when component unmounts
     return () => {
       removeLogListener();
       removeStatusListener();
@@ -61,6 +64,7 @@ function App() {
     };
   }, [navigate]);
 
+  // Protected route to ensure only authenticated users can access certain pages
   const ProtectedRoute = ({ element: Element, ...rest }) => {
     if (!isAuthenticated) {
       return <Login setIsAuthenticated={setIsAuthenticated} setError={setError} />;
@@ -99,6 +103,7 @@ function App() {
       )}
 
       <Routes>
+        {/* Login Route */}
         <Route
           path="/"
           element={
@@ -109,11 +114,14 @@ function App() {
             )
           }
         />
+        {/* Protected Dashboard Route */}
         <Route
           path="/dashboard"
           element={<ProtectedRoute element={Dashboard} logs={logs} />}
         />
+        {/* Fake Admin Route */}
         <Route path="/admin" element={<FakeAdmin />} />
+        {/* Protected Fake Terminal Route */}
         <Route
           path="/terminal"
           element={
@@ -124,6 +132,7 @@ function App() {
             />
           }
         />
+        {/* Not Found Route */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </div>

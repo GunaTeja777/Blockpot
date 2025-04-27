@@ -5,9 +5,11 @@ const API_BASE_URL = process.env.NODE_ENV === 'development'
 export const fetchLogs = async () => {
   try {
     const response = await fetch(`${API_BASE_URL}/logs`, {
-      credentials: 'include'
+      credentials: 'include'  // Ensure cookies are included in requests
     });
-    if (!response.ok) throw new Error('Failed to fetch logs');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch logs: ${response.statusText}`);
+    }
     return await response.json();
   } catch (error) {
     console.error('Error fetching logs:', error);
@@ -18,9 +20,11 @@ export const fetchLogs = async () => {
 export const checkHealth = async () => {
   try {
     const response = await fetch(`${API_BASE_URL}/health`, {
-      credentials: 'include'
+      credentials: 'include'  // Ensure cookies are included in requests
     });
-    if (!response.ok) throw new Error('Service unavailable');
+    if (!response.ok) {
+      throw new Error(`Service unavailable: ${response.statusText}`);
+    }
     return await response.json();
   } catch (error) {
     console.error('Health check failed:', error);
@@ -31,9 +35,11 @@ export const checkHealth = async () => {
 export const fetchRecentAttacks = async (limit = 100) => {
   try {
     const response = await fetch(`${API_BASE_URL}/logs?limit=${limit}`, {
-      credentials: 'include'
+      credentials: 'include'  // Ensure cookies are included in requests
     });
-    if (!response.ok) throw new Error('Failed to fetch recent attacks');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch recent attacks: ${response.statusText}`);
+    }
     return await response.json();
   } catch (error) {
     console.error('Error fetching recent attacks:', error);
