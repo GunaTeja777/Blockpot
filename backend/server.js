@@ -196,7 +196,7 @@ function tailCowrieLogs() {
 
     tailProcess.on('close', (code) => {
         console.error(`Tail process exited with code ${code}`);
-        setTimeout(tailCowrieLogs, 5000);
+        setTimeout(tailCowrieLogs, 5000); // Retry tailing if process closes unexpectedly
     });
 }
 
@@ -285,10 +285,10 @@ app.get('/api/auth/verify', (req, res) => {
     const blockchainInitialized = await initializeBlockchain();
     if (blockchainInitialized) {
         server.listen(PORT, () => {
-            console.log(`🚀 Server listening on port ${PORT}`);
-            tailCowrieLogs();
+            console.log(`🚀 Server running on http://localhost:${PORT}`);
+            tailCowrieLogs(); // Start tailing the logs only after the blockchain is initialized
         });
     } else {
-        console.error('❌ Failed to initialize blockchain. Server not started.');
+        console.error('❌ Server failed to start due to blockchain initialization failure');
     }
 })();
