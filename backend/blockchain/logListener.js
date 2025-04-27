@@ -1,23 +1,25 @@
 const WebSocket = require("ws");
 const { ethers } = require("ethers");
 const fs = require("fs");
-const abi = require("./abi/LogStorage.json");
 
-// Load deployed address
-const { address: contractAddress } = require("./contractAddress.json");
+// Load ABI and contract address
+const abi = require("/home/anand/Desktop/Blockpot/backend/blockchain/abi/LogStorage.json");
+const { address: contractAddress } = require("/home/anand/Desktop/Blockpot/backend/blockchain/contractAddress.json");
 
 // Connect to local Hardhat node
 const provider = new ethers.providers.JsonRpcProvider("http://127.0.0.1:8545");
 let signer;
-
-// Connect to contract
 let contract;
 
 async function init() {
-  const accounts = await provider.listAccounts();
-  signer = await provider.getSigner(accounts[0]);
-  contract = new ethers.Contract(contractAddress, abi, signer);
-  console.log("✅ Connected to contract at", contractAddress);
+  try {
+    const accounts = await provider.listAccounts();
+    signer = await provider.getSigner(accounts[0]);
+    contract = new ethers.Contract(contractAddress, abi, signer);
+    console.log("✅ Connected to contract at", contractAddress);
+  } catch (err) {
+    console.error("❌ Error during contract initialization:", err.message);
+  }
 }
 
 init().then(() => {
@@ -33,7 +35,10 @@ init().then(() => {
     console.log("📥 Log received:", log);
 
     try {
-      const tx = await contract.storeLog(log);
+      // Assuming log is an object, adjust according to your log format
+      const { ip, command, threatLevel, timestamp } = JSON.parse(log);
+
+      const tx = await contract.storeLog(ip, command, threatLevel, timestamp);
       await tx.wait();
       console.log("✅ Log stored in blockchain:", tx.hash);
     } catch (err) {
