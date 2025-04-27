@@ -11,19 +11,13 @@ const cors = require('cors');
 const app = express();
 const server = http.createServer(app);
 
-// Enhanced CORS configuration
 app.use(cors({
-    origin: ['http://localhost:5173', 'http://localhost:3000'], // ✅ Allow both
+    origin: ['http://localhost:5173', 'http://localhost:3000'],
     methods: ['GET', 'POST', 'OPTIONS'],
     credentials: true
-  }));
+}));
 
-// WebSocket Server
-const wss = new WebSocket.Server({
-  server,
-  clientTracking: true
-});
-
+const wss = new WebSocket.Server({ server, clientTracking: true });
 const PORT = process.env.PORT || 3001;
 const clients = new Set();
 const logPath = process.env.COWRIE_LOG_PATH || '/home/anand/cowrie/var/log/cowrie/cowrie.log';
@@ -37,12 +31,7 @@ async function initializeBlockchain() {
         if (!contractJson.abi) throw new Error("ABI property not found in contract JSON");
 
         const ABI = contractJson.abi;
-
-        const requiredEnvVars = [
-            'SEPOLIA_RPC_URL',
-            'PRIVATE_KEY',
-            'CONTRACT_ADDRESS'
-        ];
+        const requiredEnvVars = ['SEPOLIA_RPC_URL', 'PRIVATE_KEY', 'CONTRACT_ADDRESS'];
 
         const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
         if (missingVars.length > 0) {
@@ -67,7 +56,6 @@ async function initializeBlockchain() {
 // Process Cowrie log lines
 function processCowrieLog(line) {
     try {
-        // Command processing
         if (line.includes('CMD')) {
             const cmdMatch = line.match(/CMD\s+\(([^)]+)\)\s+(.+)/);
             if (cmdMatch) {
@@ -82,7 +70,6 @@ function processCowrieLog(line) {
             }
         }
 
-        // Login attempts
         if (line.includes('login attempt')) {
             const loginMatch = line.match(/(\d+\.\d+\.\d+\.\d+).*?login attempt.*?\[(.*?)\]/);
             if (loginMatch) {
@@ -97,7 +84,6 @@ function processCowrieLog(line) {
             }
         }
 
-        // Password hashes
         if (line.includes('Password found:')) {
             const hashMatch = line.match(/Password found: '(.*?)'/);
             if (hashMatch) {
@@ -111,7 +97,6 @@ function processCowrieLog(line) {
             }
         }
 
-        // File downloads
         if (line.includes('File download')) {
             const downloadMatch = line.match(/File download.*?\((.*?)\)/);
             if (downloadMatch) {
@@ -147,11 +132,9 @@ async function storeOnBlockchain(logData) {
             logData.ip || 'unknown',
             logData.content,
             logData.threatLevel,
-            Math.floor(new Date(logData.timestamp).getTime() / 1000
-        ));
-        
+            Math.floor(new Date(logData.timestamp).getTime() / 1000)
+        );
         const receipt = await tx.wait();
-        
         return {
             success: true,
             txHash: tx.hash,
@@ -170,7 +153,7 @@ async function storeOnBlockchain(logData) {
 // Tail Cowrie log file for real-time processing
 function tailCowrieLogs() {
     console.log(`👀 Starting to watch Cowrie logs at ${logPath}`);
-    
+
     const tailProcess = exec(`tail -F ${logPath}`);
 
     tailProcess.stdout.on('data', async (data) => {
@@ -222,7 +205,6 @@ wss.on('connection', (ws, req) => {
     console.log('New frontend connection from:', req.headers.origin);
     clients.add(ws);
 
-    // Heartbeat
     const heartbeat = () => {
         if (ws.isAlive === false) return ws.terminate();
         ws.isAlive = false;
@@ -254,8 +236,10 @@ wss.on('connection', (ws, req) => {
     }));
 });
 
-// API Endpoints
-app.get('/health', async (req, res) => {
+// ✅ API Endpoints
+
+// Health check
+app.get('/api/health', async (req, res) => {
     try {
         const network = await provider.getNetwork();
         res.status(200).json({
@@ -272,74 +256,39 @@ app.get('/health', async (req, res) => {
     }
 });
 
-app.get('/logs', async (req, res) => {
+// Get logs (fetch events from blockchain)
+app.get('/api/logs', async (req, res) => {
     try {
         const eventFilter = contract.filters.LogStored();
-        const logs = await contract.queryFilter(eventFilter, -5000);
-        
-        const formattedLogs = logs.map(log => ({
-            id: `${log.args.timestamp}-${log.transactionHash}`,
-            type: log.args.command.includes('Used credentials') ? 'login_attempt' : 
-                 log.args.command.includes('Hash:') ? 'hash_capture' :
-                 log.args.command.includes('Downloaded file') ? 'download' : 'command',
+        const logs = await contract.queryFilter(eventFilter);
+        const parsedLogs = logs.map(log => ({
             ip: log.args.ip,
-            content: log.args.command,
+            content: log.args.content,
             threatLevel: log.args.threatLevel,
-            timestamp: new Date(log.args.timestamp * 1000).toISOString(),
-            txHash: log.transactionHash,
-            blockNumber: log.blockNumber,
-            blockchainStatus: 'confirmed'
-        })).reverse();
-        
-        res.status(200).json(formattedLogs.slice(0, 100));
+            timestamp: new Date(log.args.timestamp.toNumber() * 1000).toISOString(),
+            txHash: log.transactionHash
+        }));
+        res.status(200).json(parsedLogs);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
-// Add this near other routes (e.g., after /health and /logs)
+
+// ✅ Add this route to fix your 404: /api/auth/verify
 app.get('/api/auth/verify', (req, res) => {
-    // Example: Check if user is authenticated (modify as needed)
-    const isAuthenticated = true; // Replace with real auth logic (JWT/session)
-    
-    if (isAuthenticated) {
-      res.status(200).json({ authenticated: true });
-    } else {
-      res.status(401).json({ authenticated: false });
-    }
-  });
+    // You can enhance this logic with sessions or JWT later
+    res.status(200).json({ authenticated: true });
+});
 
 // Start server
-async function startServer() {
-    console.log('Initializing server...');
-    
+(async () => {
     const blockchainInitialized = await initializeBlockchain();
-    if (!blockchainInitialized) {
-        console.error('Cannot start server without blockchain connection');
-        process.exit(1);
+    if (blockchainInitialized) {
+        server.listen(PORT, () => {
+            console.log(`🚀 Server listening on port ${PORT}`);
+            tailCowrieLogs();
+        });
+    } else {
+        console.error('❌ Failed to initialize blockchain. Server not started.');
     }
-
-    server.listen(PORT, '0.0.0.0', () => {
-        console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
-        console.log(`📡 WebSocket server running on ws://0.0.0.0:${PORT}`);
-        tailCowrieLogs();
-    });
-
-    server.on('error', (error) => {
-        if (error.code === 'EADDRINUSE') {
-            console.error(`Port ${PORT} is already in use`);
-        } else {
-            console.error('Server error:', error);
-        }
-        process.exit(1);
-    });
-}
-
-console.log("Environment Variables:");
-console.log("SEPOLIA_RPC_URL:", process.env.SEPOLIA_RPC_URL ? "✅" : "❌");
-console.log("CONTRACT_ADDRESS:", process.env.CONTRACT_ADDRESS ? "✅" : "❌");
-console.log("COWRIE_LOG_PATH:", fs.existsSync(logPath) ? "✅" : "❌", logPath);
-
-startServer().catch(err => {
-    console.error('Failed to start server:', err);
-    process.exit(1);
-});
+})();
