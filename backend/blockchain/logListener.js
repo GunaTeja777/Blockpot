@@ -7,7 +7,7 @@ const abi = require("./abi/LogStorage.json");
 const { address: contractAddress } = require("./contractAddress.json");
 
 // Connect to local Hardhat node
-const provider = new ethers.JsonRpcProvider("http://127.0.0.1:8545");
+const provider = new ethers.providers.JsonRpcProvider("http://127.0.0.1:8545");
 let signer;
 
 // Connect to contract
