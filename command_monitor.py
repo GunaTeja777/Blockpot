@@ -9,9 +9,8 @@ from datetime import datetime
 # Import your ML model and NLP processor
 import sys
 sys.path.append('/home/guna-teja/Desktop/hackathonX/blockPot-AI/ai_model')
-from model import CommandClassifier
-from nlp_processor import CommandNLPAnalyzer
-
+from ai_model.model import CommandClassifier
+from ai_model.nlp_processor import CommandNLPAnalyzer
 class CowrieLogProcessor:
     def __init__(self, log_file_path, model_path):
         self.log_file_path = log_file_path

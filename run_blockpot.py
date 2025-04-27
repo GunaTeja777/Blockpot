@@ -12,7 +12,7 @@ def main():
     parser.add_argument('--log-file', type=str, default='/home/guna-teja/cowrie/var/log/cowrie/cowrie.json',
                         help='Path to the cowrie.json log file')
     parser.add_argument('--model-path', type=str, 
-                        default='/home/guna-teja/Desktop/hackathonX/blockPot-AI/trained_command_classifier',
+                        default='/home/guna-teja/Desktop/project/Blockpot/trained_command_classifier',
                         help='Path to the trained model directory')
     parser.add_argument('--port', type=int, default=5000,
                         help='Port for the web interface')
