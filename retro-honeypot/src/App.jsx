@@ -21,7 +21,7 @@ function App() {
         const authStatus = await checkAuthStatus();
         setIsAuthenticated(authStatus);
         if (!authStatus) {
-          navigate("/");
+          navigate("/"); // Redirect to login page if not authenticated
         }
       } catch (err) {
         console.error("Auth verification failed:", err);
@@ -31,33 +31,28 @@ function App() {
 
     verifyAuth();
 
+    // WebSocket connection
     webSocketService.connect();
 
-    const removeLogListener = webSocketService.addListener(
-      "new_log",
-      (newLog) => {
-        setLogs((prevLogs) => [newLog, ...prevLogs.slice(0, 99)]);
-      }
-    );
+    // Listener for logs from WebSocket
+    const removeLogListener = webSocketService.addListener("new_log", (newLog) => {
+      setLogs((prevLogs) => [newLog, ...prevLogs.slice(0, 99)]);
+    });
 
-    const removeStatusListener = webSocketService.addListener(
-      "connection_change",
-      (status) => {
-        setConnectionStatus(status);
-        if (status === "disconnected") {
-          setError("WebSocket disconnected - attempting to reconnect...");
-        } else if (status === "connected") {
-          setError(null);
-        }
+    // Listener for connection status changes
+    const removeStatusListener = webSocketService.addListener("connection_change", (status) => {
+      setConnectionStatus(status);
+      if (status === "disconnected") {
+        setError("WebSocket disconnected - attempting to reconnect...");
+      } else if (status === "connected") {
+        setError(null);
       }
-    );
+    });
 
-    const removeErrorListener = webSocketService.addListener(
-      "error",
-      (error) => {
-        setError(`WebSocket error: ${error.message}`);
-      }
-    );
+    // Listener for WebSocket errors
+    const removeErrorListener = webSocketService.addListener("error", (error) => {
+      setError(`WebSocket error: ${error.message}`);
+    });
 
     return () => {
       removeLogListener();
