@@ -3,7 +3,7 @@ const { ethers } = require("ethers");
 const fs = require("fs");
 
 // Load ABI and contract address
-const abi = require("/home/anand/Desktop/Blockpot/backend/blockchain/abi/LogStorage.json");
+const abi = require("/home/anand/Desktop/Blockpot/backend/blockchain/artifacts/contracts/LogStorage.sol/LogStorage.json");
 const { address: contractAddress } = require("/home/anand/Desktop/Blockpot/backend/blockchain/contractAddress.json");
 
 // Ensure ABI is an array before proceeding
