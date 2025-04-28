@@ -27,7 +27,14 @@ let provider, wallet, contract;
 // Initialize blockchain connection
 async function initializeBlockchain() {
     try {
-        const contractJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'blockchain', 'abi', 'LogStorage.json')));
+        // Ensure path exists before reading the file
+        const abiPath = path.join(__dirname, 'blockchain', 'abi', 'LogStorage.json');
+        
+        if (!fs.existsSync(abiPath)) {
+            throw new Error(`ABI file not found at: ${abiPath}`);
+        }
+        
+        const contractJson = JSON.parse(fs.readFileSync(abiPath));
         if (!contractJson.abi) throw new Error("ABI property not found in contract JSON");
 
         const ABI = contractJson.abi;
@@ -42,6 +49,7 @@ async function initializeBlockchain() {
         wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
         contract = new ethers.Contract(process.env.CONTRACT_ADDRESS, ABI, wallet);
 
+        // Verify contract exists
         const code = await provider.getCode(process.env.CONTRACT_ADDRESS);
         if (code === '0x') throw new Error("No code at contract address");
 
@@ -65,7 +73,7 @@ function processCowrieLog(line) {
                     ip,
                     content: command,
                     timestamp: new Date().toISOString(),
-                    threatLevel: 'high'
+                    threatLevel: command.trim() === 'sudo su' ? 'critical' : 'high'
                 };
             }
         }
@@ -120,7 +128,12 @@ function broadcastEvent(event) {
     const message = JSON.stringify(event);
     clients.forEach(client => {
         if (client.readyState === WebSocket.OPEN) {
-            client.send(message);
+            try {
+                client.send(message);
+            } catch (err) {
+                console.error('Error sending message to client:', err);
+                clients.delete(client);
+            }
         }
     });
 }
@@ -128,13 +141,21 @@ function broadcastEvent(event) {
 // Store log on blockchain
 async function storeOnBlockchain(logData) {
     try {
+        if (!contract) {
+            throw new Error("Blockchain contract not initialized");
+        }
+        
         const tx = await contract.storeLog(
             logData.ip || 'unknown',
             logData.content,
             logData.threatLevel,
             Math.floor(new Date(logData.timestamp).getTime() / 1000)
         );
+        console.log('Transaction sent:', tx.hash);
+        
         const receipt = await tx.wait();
+        console.log('Transaction confirmed in block:', receipt.blockNumber);
+        
         return {
             success: true,
             txHash: tx.hash,
@@ -153,6 +174,12 @@ async function storeOnBlockchain(logData) {
 // Tail Cowrie log file for real-time processing
 function tailCowrieLogs() {
     console.log(`👀 Starting to watch Cowrie logs at ${logPath}`);
+
+    // Check if the log file exists first
+    if (!fs.existsSync(logPath)) {
+        console.error(`❌ Log file does not exist at ${logPath}`);
+        return;
+    }
 
     const tailProcess = exec(`tail -F ${logPath}`);
 
@@ -181,9 +208,26 @@ function tailCowrieLogs() {
                                 },
                                 blockchainStatus: 'confirmed'
                             });
+                        } else {
+                            broadcastEvent({
+                                event: 'blockchain_error',
+                                data: {
+                                    ...logEvent,
+                                    error: blockchainResult.error
+                                },
+                                blockchainStatus: 'failed'
+                            });
                         }
                     } catch (err) {
                         console.error('Error storing log on blockchain:', err);
+                        broadcastEvent({
+                            event: 'blockchain_error',
+                            data: {
+                                ...logEvent,
+                                error: err.message
+                            },
+                            blockchainStatus: 'failed'
+                        });
                     }
                 }
             }
@@ -229,11 +273,15 @@ wss.on('connection', (ws, req) => {
         clients.delete(ws);
     });
 
-    ws.send(JSON.stringify({
-        event: 'connection_established',
-        message: 'Connected to Cowrie log server',
-        timestamp: new Date().toISOString()
-    }));
+    try {
+        ws.send(JSON.stringify({
+            event: 'connection_established',
+            message: 'Connected to Cowrie log server',
+            timestamp: new Date().toISOString()
+        }));
+    } catch (err) {
+        console.error('Error sending initial message to client:', err);
+    }
 });
 
 // ✅ API Endpoints
@@ -241,6 +289,13 @@ wss.on('connection', (ws, req) => {
 // Health check
 app.get('/api/health', async (req, res) => {
     try {
+        if (!provider) {
+            return res.status(503).json({
+                status: 'unhealthy',
+                message: 'Blockchain provider not initialized'
+            });
+        }
+        
         const network = await provider.getNetwork();
         res.status(200).json({
             status: 'healthy',
@@ -252,25 +307,62 @@ app.get('/api/health', async (req, res) => {
             lastBlock: await provider.getBlockNumber()
         });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('Health check error:', error);
+        res.status(500).json({ 
+            status: 'error',
+            error: error.message 
+        });
     }
 });
 
 // Get logs (fetch events from blockchain)
 app.get('/api/logs', async (req, res) => {
     try {
+        if (!contract) {
+            return res.status(503).json({ 
+                error: "Blockchain connection not initialized" 
+            });
+        }
+        
+        console.log('Fetching logs from blockchain...');
+        
+        // Add proper error handling around the event query
         const eventFilter = contract.filters.LogStored();
-        const logs = await contract.queryFilter(eventFilter);
-        const parsedLogs = logs.map(log => ({
-            ip: log.args.ip,
-            content: log.args.content,
-            threatLevel: log.args.threatLevel,
-            timestamp: new Date(log.args.timestamp.toNumber() * 1000).toISOString(),
-            txHash: log.transactionHash
-        }));
+        let logs;
+        
+        try {
+            logs = await contract.queryFilter(eventFilter);
+            console.log(`Found ${logs.length} logs`);
+        } catch (err) {
+            console.error("Error querying logs:", err);
+            throw new Error(`Failed to query logs: ${err.message}`);
+        }
+            
+        // Map logs with error handling
+        const parsedLogs = logs.map(log => {
+            try {
+                return {
+                    ip: log.args.ip,
+                    content: log.args.command,
+                    threatLevel: log.args.threatLevel,
+                    timestamp: new Date(log.args.timestamp.toNumber() * 1000).toISOString(),
+                    txHash: log.transactionHash,
+                    logId: log.args.logId // Make sure to include the logId
+                };
+            } catch (err) {
+                console.error("Error parsing log:", err);
+                console.error("Problem log:", log);
+                return null;
+            }
+        }).filter(log => log !== null);
+        
         res.status(200).json(parsedLogs);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error("API logs error:", error);
+        res.status(500).json({ 
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 });
 
@@ -294,5 +386,10 @@ app.get('/auth/status', (req, res) => {
         });
     } else {
         console.error('❌ Server failed to start due to blockchain initialization failure');
+        // Start server anyway to show errors in UI
+        server.listen(PORT, () => {
+            console.log(`🚨 Server running in LIMITED MODE on http://localhost:${PORT}`);
+            console.log('⚠️ Blockchain functionality is disabled');
+        });
     }
 })();

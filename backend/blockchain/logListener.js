@@ -2,31 +2,83 @@ require("dotenv").config();
 const WebSocket = require("ws");
 const { ethers } = require("ethers");
 const fs = require("fs");
+const path = require("path");
 
 // Load ABI and contract address
-const abiFile = require("/home/anand/Desktop/Blockpot/backend/blockchain/abi/LogStorage.json");
+const abiPath = path.join(__dirname, "abi", "LogStorage.json");
+
+// Check if ABI file exists
+if (!fs.existsSync(abiPath)) {
+  console.error(`❌ ABI file not found at ${abiPath}`);
+  process.exit(1);
+}
+
+const abiFile = require(abiPath);
 const abi = abiFile.abi;
-const { address: contractAddress } = require("/home/anand/Desktop/Blockpot/backend/blockchain/contractAddress.json");
 
-// Connect to blockchain provider (ethers v6 syntax)
-const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
-// If you want local Hardhat instead, use:
-// const provider = new ethers.JsonRpcProvider("http://127.0.0.1:8545");
+// Check if contractAddress.json exists
+const contractAddressPath = path.join(__dirname, "contractAddress.json");
+if (!fs.existsSync(contractAddressPath)) {
+  console.error(`❌ Contract address file not found at ${contractAddressPath}`);
+  process.exit(1);
+}
 
+const { address: contractAddress } = require(contractAddressPath);
+
+// Connect to blockchain provider
+let provider;
 let signer;
 let contract;
 
 async function init() {
-  // Get signer using private key from environment variable
-  const privateKey = process.env.PRIVATE_KEY;
-  if (!privateKey) {
-    console.error("❌ No PRIVATE_KEY found in .env file");
-    return;
+  try {
+    // Get configuration from environment
+    const rpcUrl = process.env.SEPOLIA_RPC_URL;
+    const privateKey = process.env.PRIVATE_KEY;
+
+    if (!rpcUrl) {
+      throw new Error("No SEPOLIA_RPC_URL found in .env file");
+    }
+
+    if (!privateKey) {
+      throw new Error("No PRIVATE_KEY found in .env file");
+    }
+
+    // Initialize provider
+    provider = new ethers.JsonRpcProvider(rpcUrl);
+    console.log("✅ Connected to RPC provider");
+
+    // Test provider connection
+    const blockNumber = await provider.getBlockNumber()
+      .catch(err => {
+        throw new Error(`RPC connection failed: ${err.message}`);
+      });
+    console.log(`✅ Connected to blockchain. Current block: ${blockNumber}`);
+
+    // Initialize signer and contract
+    signer = new ethers.Wallet(privateKey, provider);
+    console.log(`✅ Wallet initialized: ${signer.address}`);
+
+    contract = new ethers.Contract(contractAddress, abi, signer);
+    
+    // Verify contract exists
+    const code = await provider.getCode(contractAddress);
+    if (code === '0x') {
+      throw new Error(`No contract deployed at address ${contractAddress}`);
+    }
+    
+    console.log(`✅ Connected to contract at ${contractAddress}`);
+    
+    // Test contract
+    const logCount = await contract.getLogCount()
+      .catch(err => {
+        throw new Error(`Contract interaction failed: ${err.message}`);
+      });
+    console.log(`✅ Contract working. Current log count: ${logCount}`);
+  } catch (error) {
+    console.error(`❌ Initialization error: ${error.message}`);
+    process.exit(1);
   }
-  
-  signer = new ethers.Wallet(privateKey, provider);
-  contract = new ethers.Contract(contractAddress, abi, signer);
-  console.log("✅ Connected to contract at", contractAddress);
 }
 
 // Create a WebSocket server for Cowrie to connect to
@@ -37,32 +89,85 @@ server.on('connection', (ws) => {
   console.log('🔗 Cowrie connected to WebSocket server');
   
   ws.on('message', async (data) => {
-    const log = data.toString();
-    console.log("📥 Log received from Cowrie:", log);
-    
     try {
+      const log = data.toString();
+      console.log("📥 Log received from Cowrie:", log);
+      
       if (!contract) {
-        console.log("⏳ Waiting for blockchain connection...");
+        console.log("⏳ Blockchain connection not ready. Waiting for initialization...");
+        // Queue logs or implement retry mechanism here if needed
         return;
       }
       
-      const tx = await contract.storeLog(log);
-      await tx.wait();
-      console.log("✅ Log stored in blockchain:", tx.hash);
+      // Parse the log to extract IP and command if available
+      let ip = "unknown";
+      let command = log;
+      let threatLevel = "low";
+      
+      // Simple parsing logic - enhance based on your log format
+      if (log.includes("CMD")) {
+        const match = log.match(/CMD\s+\(([^)]+)\)\s+(.+)/);
+        if (match) {
+          ip = match[1];
+          command = match[2];
+          threatLevel = command.includes("sudo") ? "critical" : "high";
+        }
+      }
+      
+      console.log(`Storing log: IP=${ip}, Command=${command}, ThreatLevel=${threatLevel}`);
+      
+      // Store log in blockchain
+      const tx = await contract.storeLog(
+        ip,
+        command,
+        threatLevel,
+        Math.floor(Date.now() / 1000)
+      );
+      
+      console.log("Transaction sent:", tx.hash);
+      const receipt = await tx.wait();
+      console.log("✅ Log stored in blockchain. Block:", receipt.blockNumber, "TX:", tx.hash);
+      
+      // Send confirmation back to client if needed
+      ws.send(JSON.stringify({
+        status: "stored",
+        txHash: tx.hash,
+        blockNumber: receipt.blockNumber
+      }));
+      
     } catch (err) {
-      console.error("❌ Error storing log:", err.message);
+      console.error("❌ Error processing log:", err.message);
+      
+      // Send error to client
+      try {
+        ws.send(JSON.stringify({
+          status: "error",
+          message: err.message
+        }));
+      } catch (sendError) {
+        console.error("Failed to send error to client:", sendError);
+      }
     }
   });
   
   ws.on('close', () => {
     console.log('👋 Cowrie disconnected');
   });
-
+  
   ws.on('error', (err) => {
     console.error('⚠️ WebSocket error:', err.message);
   });
 });
 
+// Initialize and catch any errors
 init().catch((err) => {
-  console.error("❌ Initialization error:", err.message);
+  console.error("❌ Fatal initialization error:", err.message);
+  process.exit(1);
+});
+
+// Handle process termination
+process.on('SIGINT', () => {
+  console.log('Shutting down...');
+  server.close();
+  process.exit(0);
 });

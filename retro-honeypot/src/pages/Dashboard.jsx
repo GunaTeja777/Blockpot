@@ -1,234 +1,269 @@
-import React, { useState, useEffect } from 'react';
-import { webSocketService } from '../services/websocket';
-import { fetchLogs } from '../services/api';
+import React, { useState, useEffect, useRef } from 'react';
+import { Alert, Spinner } from '../components/ui-components'; // Adjust import based on your UI library
 
-const Dashboard = () => {
-    const [attacks, setAttacks] = useState([]);
-    const [stats, setStats] = useState({
-        total: 0,
-        commands: 0,
-        logins: 0,
-        hashes: 0,
-        pending: 0
+// Error boundary component
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    this.setState({
+      error: error,
+      errorInfo: errorInfo
     });
-    const [isLoading, setIsLoading] = useState(true);
+    console.error("Dashboard error:", error, errorInfo);
+  }
 
-    useEffect(() => {
-        // Load initial logs
-        const loadInitialLogs = async () => {
-            try {
-                const initialLogs = await fetchLogs();
-                setAttacks(initialLogs);
-                updateStats(initialLogs);
-            } catch (err) {
-                console.error('Failed to load initial logs:', err);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        loadInitialLogs();
-
-        // Setup WebSocket listeners
-        const handleNewLog = (event) => {
-            setAttacks(prev => [{
-                ...event.data,
-                id: `${event.data.timestamp}-${Math.random().toString(36).substr(2, 9)}`,
-                blockchainStatus: 'pending',
-                txHash: null,
-                blockNumber: null
-            }, ...prev.slice(0, 199)]); // Keep max 200 logs
-            
-            setStats(prev => ({
-                ...prev,
-                total: prev.total + 1,
-                pending: prev.pending + 1,
-                [event.data.type === 'command' ? 'commands' : 
-                 event.data.type === 'login_attempt' ? 'logins' : 
-                 event.data.type === 'hash_capture' ? 'hashes' : 'total']: prev[event.data.type === 'command' ? 'commands' : 
-                                                                           event.data.type === 'login_attempt' ? 'logins' : 
-                                                                           event.data.type === 'hash_capture' ? 'hashes' : 'total'] + 1
-            }));
-        };
-
-        const handleBlockchainConfirmation = (event) => {
-            setAttacks(prev => prev.map(attack => 
-                attack.timestamp === event.data.timestamp && 
-                attack.content === event.data.content
-                    ? { ...attack, ...event.data, blockchainStatus: 'confirmed' }
-                    : attack
-            ));
-            
-            setStats(prev => ({
-                ...prev,
-                pending: Math.max(0, prev.pending - 1)
-            }));
-        };
-
-        const newLogRemover = webSocketService.addListener('new_log', handleNewLog);
-        const confirmRemover = webSocketService.addListener('blockchain_confirmation', handleBlockchainConfirmation);
-
-        return () => {
-            newLogRemover();
-            confirmRemover();
-        };
-    }, []);
-
-    const updateStats = (logs) => {
-        const newStats = {
-            total: logs.length,
-            commands: logs.filter(log => log.type === 'command').length,
-            logins: logs.filter(log => log.type === 'login_attempt').length,
-            hashes: logs.filter(log => log.type === 'hash_capture').length,
-            pending: logs.filter(log => log.blockchainStatus !== 'confirmed').length
-        };
-        setStats(newStats);
-    };
-
-    const getThreatColor = (threatLevel) => {
-        switch (threatLevel) {
-            case 'critical': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-            case 'high': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
-            case 'medium': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-            default: return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
-        }
-    };
-
-    const getTypeColor = (type) => {
-        switch (type) {
-            case 'command': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-            case 'login_attempt': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-            case 'hash_capture': return 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200';
-            case 'download': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-            default: return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
-        }
-    };
-
-    if (isLoading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-            </div>
-        );
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="error-boundary p-4 bg-red-100 border border-red-400 rounded">
+          <h2 className="text-xl font-bold text-red-800">Something went wrong</h2>
+          <p className="text-red-700">{this.state.error?.message || 'Unknown error'}</p>
+          <button 
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            onClick={() => window.location.reload()}
+          >
+            Reload Page
+          </button>
+        </div>
+      );
     }
+    return this.props.children;
+  }
+}
 
+function Dashboard() {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [connectionStatus, setConnectionStatus] = useState('connecting');
+  const wsRef = useRef(null);
+
+  // Function to fetch logs from API
+  const fetchLogs = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('http://localhost:3001/api/logs');
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP error ${response.status}: ${errorText}`);
+      }
+      
+      const data = await response.json();
+      console.log("Fetched logs:", data);
+      setLogs(data);
+      setError(null);
+    } catch (err) {
+      console.error("Failed to fetch logs:", err);
+      setError(`Failed to fetch logs: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Setup WebSocket and API connections
+  useEffect(() => {
+    // Connect to WebSocket server
+    const connectWebSocket = () => {
+      const ws = new WebSocket('ws://localhost:3001');
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        console.log('WebSocket connection established');
+        setConnectionStatus('connected');
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          if (!event || !event.data) {
+            console.warn('Received empty WebSocket message');
+            return;
+          }
+          
+          const parsedData = JSON.parse(event.data);
+          console.log("WebSocket message received:", parsedData);
+          
+          // Handle different event types
+          if (parsedData.event === 'new_log') {
+            setLogs(prevLogs => [...prevLogs, parsedData.data]);
+          } else if (parsedData.event === 'blockchain_confirmation') {
+            setLogs(prevLogs => 
+              prevLogs.map(log => 
+                (log.timestamp === parsedData.data.timestamp && log.content === parsedData.data.content) 
+                  ? { ...log, ...parsedData.data } 
+                  : log
+              )
+            );
+          } else if (parsedData.event === 'blockchain_error') {
+            // Handle blockchain errors
+            console.error("Blockchain error:", parsedData.data.error);
+          }
+        } catch (err) {
+          console.error('Error handling WebSocket message:', err);
+          if (event && event.data) {
+            console.error('Raw message:', event.data);
+          }
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setConnectionStatus('error');
+        setError('WebSocket connection error');
+      };
+
+      ws.onclose = () => {
+        console.log('WebSocket connection closed');
+        setConnectionStatus('disconnected');
+        
+        // Attempt to reconnect after a delay
+        setTimeout(() => {
+          setConnectionStatus('connecting');
+          connectWebSocket();
+        }, 5000);
+      };
+    };
+
+    // Initial fetch of logs
+    fetchLogs();
+    
+    // Initial WebSocket connection
+    connectWebSocket();
+
+    // Clean up
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
+  }, []);
+
+  // Connection status indicator
+  const ConnectionStatus = () => {
+    let statusColor;
+    let statusText;
+    
+    switch (connectionStatus) {
+      case 'connected':
+        statusColor = 'bg-green-500';
+        statusText = 'Connected';
+        break;
+      case 'connecting':
+        statusColor = 'bg-yellow-500';
+        statusText = 'Connecting...';
+        break;
+      case 'disconnected':
+        statusColor = 'bg-red-500';
+        statusText = 'Disconnected';
+        break;
+      case 'error':
+        statusColor = 'bg-red-500';
+        statusText = 'Connection Error';
+        break;
+      default:
+        statusColor = 'bg-gray-500';
+        statusText = 'Unknown';
+    }
+    
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white mb-6">
-                Live Attack Dashboard
-            </h1>
-            
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-                <StatCard 
-                    title="Total Attacks" 
-                    value={stats.total} 
-                    color="bg-blue-600" 
-                    icon="👾" 
-                />
-                <StatCard 
-                    title="Commands" 
-                    value={stats.commands} 
-                    color="bg-green-600" 
-                    icon="💻" 
-                />
-                <StatCard 
-                    title="Login Attempts" 
-                    value={stats.logins} 
-                    color="bg-purple-600" 
-                    icon="🔑" 
-                />
-                <StatCard 
-                    title="Hashes Captured" 
-                    value={stats.hashes} 
-                    color="bg-pink-600" 
-                    icon="🕵️" 
-                />
-                <StatCard 
-                    title="Pending TXs" 
-                    value={stats.pending} 
-                    color={stats.pending > 0 ? "bg-yellow-600" : "bg-gray-600"} 
-                    icon="⏳" 
-                />
-            </div>
-
-            {/* Live Attacks Table */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                        <thead className="bg-gray-50 dark:bg-gray-700">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Type</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">IP</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Content</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Time</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Threat</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">TX Hash</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                            {attacks.map((attack) => (
-                                <tr key={attack.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getTypeColor(attack.type)}`}>
-                                            {attack.type.replace('_', ' ')}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-500 dark:text-gray-300">
-                                        {attack.ip}
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-300 max-w-xs truncate">
-                                        <code className="font-mono">{attack.content}</code>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                                        {new Date(attack.timestamp).toLocaleTimeString()}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getThreatColor(attack.threatLevel)}`}>
-                                            {attack.threatLevel}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                                        {attack.blockchainStatus === 'confirmed' ? (
-                                            <a
-                                                href={`https://sepolia.etherscan.io/tx/${attack.txHash}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-blue-500 hover:underline font-mono"
-                                                title={attack.txHash}
-                                            >
-                                                {`${attack.txHash.substring(0, 6)}...${attack.txHash.substring(attack.txHash.length - 4)}`}
-                                            </a>
-                                        ) : (
-                                            <span className="text-yellow-500 flex items-center">
-                                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-yellow-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                </svg>
-                                                Pending
-                                            </span>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+      <div className="flex items-center mb-4">
+        <div className={`w-3 h-3 ${statusColor} rounded-full mr-2`}></div>
+        <span>{statusText}</span>
+      </div>
     );
-};
+  };
 
-const StatCard = ({ title, value, color, icon }) => (
-    <div className={`${color} rounded-lg p-4 text-white shadow`}>
-        <div className="flex justify-between items-center">
-            <div>
-                <h3 className="text-sm font-medium">{title}</h3>
-                <p className="text-2xl font-bold">{value}</p>
+  // Render loading state
+  if (loading && logs.length === 0) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Spinner />
+        <p className="ml-2">Loading logs...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="dashboard p-4">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Honeypot Activity Dashboard</h1>
+        <ConnectionStatus />
+      </div>
+      
+      {error && (
+        <Alert variant="danger" className="mb-4">
+          {error}
+          <button 
+            className="ml-4 px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+            onClick={() => fetchLogs()}
+          >
+            Retry
+          </button>
+        </Alert>
+      )}
+      
+      <div className="log-container space-y-4">
+        {logs.length > 0 ? (
+          logs.map((log, index) => (
+            <div 
+              key={log.txHash || log.logId || index} 
+              className={`log-item p-4 border rounded ${
+                log.threatLevel === 'critical' ? 'border-red-500 bg-red-50' :
+                log.threatLevel === 'high' ? 'border-orange-500 bg-orange-50' :
+                log.threatLevel === 'medium' ? 'border-yellow-500 bg-yellow-50' :
+                'border-blue-500 bg-blue-50'
+              }`}
+            >
+              <div className="log-header flex justify-between items-center mb-2">
+                <span className="ip font-mono">{log.ip}</span>
+                <span className="time text-sm text-gray-600">
+                  {new Date(log.timestamp).toLocaleString()}
+                </span>
+                <span className={`threat-level px-2 py-1 rounded text-xs font-bold ${
+                  log.threatLevel === 'critical' ? 'bg-red-600 text-white' :
+                  log.threatLevel === 'high' ? 'bg-orange-600 text-white' :
+                  log.threatLevel === 'medium' ? 'bg-yellow-600 text-white' :
+                  'bg-blue-600 text-white'
+                }`}>
+                  {log.threatLevel}
+                </span>
+              </div>
+              <div className="log-content font-mono bg-gray-100 p-2 rounded">
+                {log.content}
+              </div>
+              {log.txHash && (
+                <div className="blockchain-info mt-2 text-xs text-gray-700">
+                  <span className="tx-hash">TX: {log.txHash.substring(0, 10)}...</span>
+                  {log.blockNumber && (
+                    <span className="block ml-2">Block: {log.blockNumber}</span>
+                  )}
+                </div>
+              )}
             </div>
-            <span className="text-2xl">{icon}</span>
-        </div>
+          ))
+        ) : (
+          <div className="text-center p-8 bg-gray-100 rounded">
+            <p>No logs available</p>
+          </div>
+        )}
+      </div>
     </div>
-);
+  );
+}
 
-export default Dashboard;
+// Export the Dashboard wrapped in the ErrorBoundary
+export default function DashboardWithErrorHandling() {
+  return (
+    <ErrorBoundary>
+      <Dashboard />
+    </ErrorBoundary>
+  );
+}
