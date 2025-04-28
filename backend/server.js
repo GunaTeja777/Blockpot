@@ -316,7 +316,6 @@ app.get('/api/health', async (req, res) => {
 });
 
 // Get logs (fetch events from blockchain)
-// Get logs (fetch events from blockchain)
 app.get('/api/logs', async (req, res) => {
     try {
         if (!contract) {
@@ -340,16 +339,34 @@ app.get('/api/logs', async (req, res) => {
             
         const parsedLogs = logs.map(log => {
             try {
-                // Handle BigNumber timestamp conversion safely
+                // Safer timestamp conversion
                 let timestamp;
                 try {
-                    timestamp = new Date(
-                        typeof log.args.timestamp === 'object' 
-                            ? log.args.timestamp.toNumber() * 1000 
-                            : Number(log.args.timestamp) * 1000
-                    ).toISOString();
+                    // First, ensure we have a number regardless of how it's stored
+                    let timestampValue;
+                    
+                    if (typeof log.args.timestamp === 'object' && log.args.timestamp !== null) {
+                        // Handle BigNumber objects from ethers v5
+                        if (typeof log.args.timestamp.toNumber === 'function') {
+                            timestampValue = log.args.timestamp.toNumber();
+                        } 
+                        // Handle BigInt objects from ethers v6
+                        else if (typeof log.args.timestamp.toString === 'function') {
+                            timestampValue = Number(log.args.timestamp.toString());
+                        }
+                        else {
+                            // If it's some other object type, try to convert it
+                            timestampValue = Number(log.args.timestamp);
+                        }
+                    } else {
+                        // Handle primitive types
+                        timestampValue = Number(log.args.timestamp);
+                    }
+                    
+                    // Create date from timestamp (multiply by 1000 to convert seconds to milliseconds)
+                    timestamp = new Date(timestampValue * 1000).toISOString();
                 } catch (timestampErr) {
-                    console.error("Timestamp conversion error:", timestampErr);
+                    console.error("Timestamp conversion error:", timestampErr, "Raw value:", log.args.timestamp);
                     timestamp = new Date().toISOString(); // Fallback to current time
                 }
 
@@ -363,7 +380,9 @@ app.get('/api/logs', async (req, res) => {
                 };
             } catch (err) {
                 console.error("Error parsing log:", err);
-                console.error("Problem log:", log);
+                console.error("Problem log:", JSON.stringify(log, (key, value) => 
+                    typeof value === 'bigint' ? value.toString() : value
+                ));
                 return null;
             }
         }).filter(log => log !== null);
