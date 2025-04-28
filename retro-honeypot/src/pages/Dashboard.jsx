@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Alert, Spinner } from '../components/ui-components'; // Adjust import based on your UI library
 
 // Error boundary component
 class ErrorBoundary extends React.Component {
