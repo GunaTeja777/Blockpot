@@ -267,7 +267,10 @@ function Dashboard() {
               </div>
               {log.txHash && (
                 <div className="blockchain-info mt-2 text-xs text-gray-700">
-                  <span className="tx-hash">TX: {log.txHash.substring(0, 10)}...</span>
+                  <span className="tx-hash">TX: {typeof log.txHash === 'object' ? 
+                    (log.txHash.hash || String(log.txHash)) : 
+                    log.txHash.substring(0, 10)}...
+                  </span>
                   {log.blockNumber && (
                     <span className="block ml-2">Block: {log.blockNumber}</span>
                   )}
