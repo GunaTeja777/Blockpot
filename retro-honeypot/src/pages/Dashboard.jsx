@@ -1,5 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 
+// Helper function to safely stringify any potential object values
+const safeStringify = (value) => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'object') {
+    // Handle ethers.js transaction objects
+    if (value.hash) return value.hash.toString();
+    return JSON.stringify(value);
+  }
+  return String(value);
+};
+
 // Simple Spinner component
 function Spinner() {
   return (
@@ -72,6 +83,26 @@ function Dashboard() {
   const [connectionStatus, setConnectionStatus] = useState('connecting');
   const wsRef = useRef(null);
 
+  // Function to sanitize logs data to ensure no objects are rendered directly
+  const sanitizeLogs = (logsData) => {
+    return logsData.map(log => {
+      // Create a new object with sanitized values
+      const sanitizedLog = {...log};
+      
+      // Ensure txHash is a string
+      if (sanitizedLog.txHash) {
+        sanitizedLog.txHash = safeStringify(sanitizedLog.txHash);
+      }
+      
+      // Ensure other potentially problematic fields are strings
+      if (sanitizedLog.blockNumber) {
+        sanitizedLog.blockNumber = safeStringify(sanitizedLog.blockNumber);
+      }
+      
+      return sanitizedLog;
+    });
+  };
+
   // Function to fetch logs from API
   const fetchLogs = async () => {
     try {
@@ -85,7 +116,7 @@ function Dashboard() {
       
       const data = await response.json();
       console.log("Fetched logs:", data);
-      setLogs(data);
+      setLogs(sanitizeLogs(data));
       setError(null);
     } catch (err) {
       console.error("Failed to fetch logs:", err);
@@ -119,12 +150,14 @@ function Dashboard() {
           
           // Handle different event types
           if (parsedData.event === 'new_log') {
-            setLogs(prevLogs => [...prevLogs, parsedData.data]);
+            const sanitizedData = sanitizeLogs([parsedData.data])[0];
+            setLogs(prevLogs => [...prevLogs, sanitizedData]);
           } else if (parsedData.event === 'blockchain_confirmation') {
+            const sanitizedData = sanitizeLogs([parsedData.data])[0];
             setLogs(prevLogs => 
               prevLogs.map(log => 
                 (log.timestamp === parsedData.data.timestamp && log.content === parsedData.data.content) 
-                  ? { ...log, ...parsedData.data } 
+                  ? { ...log, ...sanitizedData } 
                   : log
               )
             );
@@ -267,10 +300,7 @@ function Dashboard() {
               </div>
               {log.txHash && (
                 <div className="blockchain-info mt-2 text-xs text-gray-700">
-                  <span className="tx-hash">TX: {typeof log.txHash === 'object' ? 
-                    (log.txHash.hash || String(log.txHash)) : 
-                    log.txHash.substring(0, 10)}...
-                  </span>
+                  <span className="tx-hash">TX: {log.txHash.substring(0, 10)}...</span>
                   {log.blockNumber && (
                     <span className="block ml-2">Block: {log.blockNumber}</span>
                   )}
