@@ -1,15 +1,21 @@
+const { ethers } = require("hardhat");
 const fs = require("fs");
 
 async function main() {
   const LogStorage = await ethers.getContractFactory("LogStorage");
-  const logStorage = await LogStorage.deploy(); // Deploy already waits for confirmation
-
-  console.log("LogStorage deployed to:", logStorage.target); // Use .target instead of .address in ethers v6
-
+  const logStorage = await LogStorage.deploy();
+  
+  // Wait for deployment to complete
+  await logStorage.waitForDeployment();
+  
+  // Get the deployed contract address
+  const address = await logStorage.getAddress();
+  console.log("LogStorage deployed to:", address);
+  
   // Save address to JSON file
   fs.writeFileSync(
     "./contractAddress.json",
-    JSON.stringify({ address: logStorage.target }, null, 2) // Use .target
+    JSON.stringify({ address: address }, null, 2)
   );
 }
 
