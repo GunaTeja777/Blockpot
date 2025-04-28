@@ -1,2 +1,8 @@
 node_modeules
 .env
+SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/6dd8262e819349478a076bf4633dca79
+PRIVATE_KEY=5b9a8f7666e7bdee7c8bf521b172654cd47b6127a2f879c69f7ba140ba4cffc7
+CONTRACT_ADDRESS=0x70F9ae21bf56438e2bb1D50CDf898Cf2571307d7
+FRONTEND_URL=http://localhost:3000
+PORT=3001
+COWRIE_LOG_PATH=/home/anand/cowrie/var/log/cowrie/cowrie.log
