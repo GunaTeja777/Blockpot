@@ -1,16 +1,16 @@
 const WebSocket = require("ws");
 const { ethers } = require("ethers");
 const fs = require("fs");
-const abi = require("./abi/LogStorage.json");
 
-// Load deployed address
-const { address: contractAddress } = require("./contractAddress.json");
+// Load ABI and contract address
+const abiFile = require("/home/anand/Desktop/Blockpot/backend/blockchain/abi/LogStorage.json");
+const abi = abiFile.abi; // Access the ABI from the object
+
+const { address: contractAddress } = require("/home/anand/Desktop/Blockpot/backend/blockchain/contractAddress.json");
 
 // Connect to local Hardhat node
 const provider = new ethers.providers.JsonRpcProvider("http://127.0.0.1:8545");
 let signer;
-
-// Connect to contract
 let contract;
 
 async function init() {
@@ -21,7 +21,7 @@ async function init() {
 }
 
 init().then(() => {
-  // Connect to Cowrie WebSocket logs (replace port if needed)
+  // Connect to Cowrie WebSocket logs
   const ws = new WebSocket("ws://127.0.0.1:8080");
 
   ws.on("open", () => console.log("🌐 WebSocket connected to Cowrie"));
@@ -33,6 +33,7 @@ init().then(() => {
     console.log("📥 Log received:", log);
 
     try {
+      // Store the log in the blockchain contract
       const tx = await contract.storeLog(log);
       await tx.wait();
       console.log("✅ Log stored in blockchain:", tx.hash);
