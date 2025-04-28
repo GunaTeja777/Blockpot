@@ -316,6 +316,7 @@ app.get('/api/health', async (req, res) => {
 });
 
 // Get logs (fetch events from blockchain)
+// Get logs (fetch events from blockchain)
 app.get('/api/logs', async (req, res) => {
     try {
         if (!contract) {
@@ -326,7 +327,6 @@ app.get('/api/logs', async (req, res) => {
         
         console.log('Fetching logs from blockchain...');
         
-        // Add proper error handling around the event query
         const eventFilter = contract.filters.LogStored();
         let logs;
         
@@ -338,16 +338,28 @@ app.get('/api/logs', async (req, res) => {
             throw new Error(`Failed to query logs: ${err.message}`);
         }
             
-        // Map logs with error handling
         const parsedLogs = logs.map(log => {
             try {
+                // Handle BigNumber timestamp conversion safely
+                let timestamp;
+                try {
+                    timestamp = new Date(
+                        typeof log.args.timestamp === 'object' 
+                            ? log.args.timestamp.toNumber() * 1000 
+                            : Number(log.args.timestamp) * 1000
+                    ).toISOString();
+                } catch (timestampErr) {
+                    console.error("Timestamp conversion error:", timestampErr);
+                    timestamp = new Date().toISOString(); // Fallback to current time
+                }
+
                 return {
                     ip: log.args.ip,
                     content: log.args.command,
                     threatLevel: log.args.threatLevel,
-                    timestamp: new Date(log.args.timestamp.toNumber() * 1000).toISOString(),
+                    timestamp: timestamp,
                     txHash: log.transactionHash,
-                    logId: log.args.logId // Make sure to include the logId
+                    logId: log.args.logId.toString() // Ensure logId is string
                 };
             } catch (err) {
                 console.error("Error parsing log:", err);
@@ -365,7 +377,6 @@ app.get('/api/logs', async (req, res) => {
         });
     }
 });
-
 // ✅ Add this route to fix your 404: /api/auth/verify
 app.get('/api/auth/verify', (req, res) => {
     // You can enhance this logic with sessions or JWT later
