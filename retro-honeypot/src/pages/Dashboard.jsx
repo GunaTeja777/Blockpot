@@ -1,5 +1,32 @@
 import React, { useState, useEffect, useRef } from 'react';
 
+// Simple Spinner component
+function Spinner() {
+  return (
+    <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]">
+      <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">
+        Loading...
+      </span>
+    </div>
+  );
+}
+
+// Simple Alert component (since it was used but not defined)
+function Alert({ variant = 'danger', children, className = '' }) {
+  const variantClasses = {
+    danger: 'bg-red-100 border-red-400 text-red-700',
+    success: 'bg-green-100 border-green-400 text-green-700',
+    warning: 'bg-yellow-100 border-yellow-400 text-yellow-700',
+    info: 'bg-blue-100 border-blue-400 text-blue-700'
+  };
+
+  return (
+    <div className={`border rounded px-4 py-3 ${variantClasses[variant]} ${className}`}>
+      {children}
+    </div>
+  );
+}
+
 // Error boundary component
 class ErrorBoundary extends React.Component {
   constructor(props) {
