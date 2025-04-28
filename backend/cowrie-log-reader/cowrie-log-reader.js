@@ -2,12 +2,34 @@ const fs = require('fs');
 const readline = require('readline');
 const EventEmitter = require('events');
 const { exec } = require('child_process');
+const WebSocket = require('ws');
 
-const emitter = new EventEmitter();
-const logPath = process.env.COWRIE_LOG_PATH || '/home/anand/cowrie/var/log/cowrie/cowrie.log';
+class CowrieLogReader extends EventEmitter {
+  constructor(options = {}) {
+    super();
+    this.logPath = options.logPath || process.env.COWRIE_LOG_PATH || '/home/anand/cowrie/var/log/cowrie/cowrie.log';
+    this.tailProcess = null;
+    this.ws = null;
+    this.wsUrl = options.wsUrl || 'ws://localhost:8080';
+    this.reconnectInterval = options.reconnectInterval || 5000;
+    this.shouldReconnect = true;
 
-// Enhanced log parser with more event types
-function parseCowrieLog(line) {
+    // Validate log path exists
+    this.checkLogFile();
+  }
+
+  checkLogFile() {
+    try {
+      fs.accessSync(this.logPath, fs.constants.F_OK | fs.constants.R_OK);
+      console.log(`✅ Log file accessible at ${this.logPath}`);
+    } catch (err) {
+      console.error(`❌ Cannot access log file at ${this.logPath}:`, err.message);
+      throw new Error(`Log file not accessible: ${err.message}`);
+    }
+  }
+
+  // Parse log lines
+  parseCowrieLog(line) {
     try {
         const timestamp = new Date().toISOString();
         
@@ -101,43 +123,139 @@ function parseCowrieLog(line) {
         console.error('Error parsing log line:', err);
     }
     return null;
-}
+  }
 
-// More robust log tailing implementation
-function tailLogs() {
-    // Use tail -F for continuous monitoring
-    const tailProcess = exec(`tail -F ${logPath}`);
+  // Connect to the WebSocket server (for integration with blockchain)
+  connectWebSocket() {
+    try {
+      console.log(`Connecting to WebSocket server at ${this.wsUrl}...`);
+      this.ws = new WebSocket(this.wsUrl);
 
-    tailProcess.stdout.on('data', (data) => {
+      this.ws.on('open', () => {
+        console.log('✅ Connected to WebSocket server');
+      });
+
+      this.ws.on('message', (data) => {
+        try {
+          const response = JSON.parse(data);
+          console.log('WebSocket message received:', response);
+          
+          // Process server responses if needed
+          if (response.status === "stored") {
+            console.log(`Log stored on blockchain. TX: ${response.txHash}, Block: ${response.blockNumber}`);
+          }
+        } catch (err) {
+          console.error('Failed to process WebSocket message:', err);
+        }
+      });
+
+      this.ws.on('error', (err) => {
+        console.error('WebSocket error:', err.message);
+      });
+
+      this.ws.on('close', () => {
+        console.log('WebSocket connection closed');
+        
+        if (this.shouldReconnect) {
+          console.log(`Will attempt to reconnect in ${this.reconnectInterval/1000} seconds...`);
+          setTimeout(() => this.connectWebSocket(), this.reconnectInterval);
+        }
+      });
+    } catch (err) {
+      console.error('Failed to connect to WebSocket server:', err);
+      if (this.shouldReconnect) {
+        setTimeout(() => this.connectWebSocket(), this.reconnectInterval);
+      }
+    }
+  }
+
+  // Send log to WebSocket server
+  sendToWebSocket(logData) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try {
+        this.ws.send(JSON.stringify(logData));
+      } catch (err) {
+        console.error('Failed to send log to WebSocket server:', err);
+      }
+    } else {
+      console.warn('WebSocket not connected, cannot send log');
+    }
+  }
+
+  // Start monitoring logs
+  startMonitoring() {
+    console.log(`Starting to monitor Cowrie logs at ${this.logPath}`);
+    
+    // Connect to WebSocket server first
+    this.connectWebSocket();
+    
+    // Then start monitoring logs
+    this.tailLogs();
+  }
+
+  // Tail the log file for real-time updates
+  tailLogs() {
+    try {
+      this.tailProcess = exec(`tail -F ${this.logPath}`);
+
+      this.tailProcess.stdout.on('data', (data) => {
         const lines = data.toString().split('\n');
         lines.forEach(line => {
-            if (line.trim()) {
-                const logEvent = parseCowrieLog(line);
-                if (logEvent) {
-                    emitter.emit('cowrie_log', logEvent);
-                }
+          if (line.trim()) {
+            const logEvent = this.parseCowrieLog(line);
+            if (logEvent) {
+              // Emit the event locally
+              this.emit('cowrie_log', logEvent);
+              
+              // Also send to WebSocket server if connected
+              this.sendToWebSocket(logEvent);
             }
+          }
         });
-    });
+      });
 
-    tailProcess.stderr.on('data', (data) => {
+      this.tailProcess.stderr.on('data', (data) => {
         console.error('Tail process error:', data.toString());
-    });
+      });
 
-    tailProcess.on('close', (code) => {
+      this.tailProcess.on('close', (code) => {
         console.error(`Tail process exited with code ${code}. Attempting to restart...`);
-        setTimeout(tailLogs, 1000);
-    });
+        setTimeout(() => this.tailLogs(), 1000);
+      });
+    } catch (err) {
+      console.error('Failed to start tail process:', err);
+      setTimeout(() => this.tailLogs(), 5000);
+    }
+  }
+
+  // Stop monitoring
+  stop() {
+    console.log('Stopping Cowrie log monitoring...');
+    this.shouldReconnect = false;
+    
+    if (this.tailProcess) {
+      this.tailProcess.kill();
+    }
+    
+    if (this.ws) {
+      this.ws.close();
+    }
+  }
 }
 
-// Initial log file check
-fs.access(logPath, fs.constants.F_OK | fs.constants.R_OK, (err) => {
-    if (err) {
-        console.error(`Cannot access log file at ${logPath}:`, err);
-        process.exit(1);
-    }
-    console.log(`Starting to monitor Cowrie logs at ${logPath}`);
-    tailLogs();
-});
+// Create and export instance
+const reader = new CowrieLogReader();
 
-module.exports = emitter;
+// Auto-start if this module is run directly (not imported)
+if (require.main === module) {
+  reader.startMonitoring();
+  
+  // Handle process termination
+  process.on('SIGINT', () => {
+    console.log('Shutting down...');
+    reader.stop();
+    process.exit(0);
+  });
+}
+
+module.exports = reader;
