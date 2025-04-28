@@ -34,7 +34,7 @@ class ErrorBoundary extends React.Component {
     this.state = { hasError: false, error: null, errorInfo: null };
   }
 
-  static getDerivedStateFromError() {
+  static getDerivedStateFromError(error) {
     return { hasError: true };
   }
 
@@ -236,55 +236,45 @@ function Dashboard() {
         </Alert>
       )}
       
-      {/* Update the log rendering part in Dashboard component */}
       <div className="log-container space-y-4">
         {logs.length > 0 ? (
-          logs.map((log, index) => {
-            // Safely handle potentially undefined values
-            const ip = log.ip || 'Unknown IP';
-            const content = log.content || 'No content';
-            const threatLevel = log.threatLevel || 'medium';
-            const timestamp = log.timestamp ? new Date(log.timestamp).toLocaleString() : 'Unknown time';
-            const txHashShort = log.txHash ? `${log.txHash.substring(0, 10)}...` : 'No TX';
-
-            return (
-              <div 
-                key={log.txHash || log.logId || index} 
-                className={`log-item p-4 border rounded ${
-                  threatLevel === 'critical' ? 'border-red-500 bg-red-50' :
-                  threatLevel === 'high' ? 'border-orange-500 bg-orange-50' :
-                  threatLevel === 'medium' ? 'border-yellow-500 bg-yellow-50' :
-                  'border-blue-500 bg-blue-50'
-                }`}
-              >
-                <div className="log-header flex justify-between items-center mb-2">
-                  <span className="ip font-mono">{ip}</span>
-                  <span className="time text-sm text-gray-600">
-                    {timestamp}
-                  </span>
-                  <span className={`threat-level px-2 py-1 rounded text-xs font-bold ${
-                    threatLevel === 'critical' ? 'bg-red-600 text-white' :
-                    threatLevel === 'high' ? 'bg-orange-600 text-white' :
-                    threatLevel === 'medium' ? 'bg-yellow-600 text-white' :
-                    'bg-blue-600 text-white'
-                  }`}>
-                    {threatLevel}
-                  </span>
-                </div>
-                <div className="log-content font-mono bg-gray-100 p-2 rounded">
-                  {content}
-                </div>
-                {log.txHash && (
-                  <div className="blockchain-info mt-2 text-xs text-gray-700">
-                    <span className="tx-hash">TX: {txHashShort}</span>
-                    {log.blockNumber && (
-                      <span className="block ml-2">Block: {log.blockNumber}</span>
-                    )}
-                  </div>
-                )}
+          logs.map((log, index) => (
+            <div 
+              key={log.txHash || log.logId || index} 
+              className={`log-item p-4 border rounded ${
+                log.threatLevel === 'critical' ? 'border-red-500 bg-red-50' :
+                log.threatLevel === 'high' ? 'border-orange-500 bg-orange-50' :
+                log.threatLevel === 'medium' ? 'border-yellow-500 bg-yellow-50' :
+                'border-blue-500 bg-blue-50'
+              }`}
+            >
+              <div className="log-header flex justify-between items-center mb-2">
+                <span className="ip font-mono">{log.ip}</span>
+                <span className="time text-sm text-gray-600">
+                  {new Date(log.timestamp).toLocaleString()}
+                </span>
+                <span className={`threat-level px-2 py-1 rounded text-xs font-bold ${
+                  log.threatLevel === 'critical' ? 'bg-red-600 text-white' :
+                  log.threatLevel === 'high' ? 'bg-orange-600 text-white' :
+                  log.threatLevel === 'medium' ? 'bg-yellow-600 text-white' :
+                  'bg-blue-600 text-white'
+                }`}>
+                  {log.threatLevel}
+                </span>
               </div>
-            );
-          })
+              <div className="log-content font-mono bg-gray-100 p-2 rounded">
+                {log.content}
+              </div>
+              {log.txHash && (
+                <div className="blockchain-info mt-2 text-xs text-gray-700">
+                  <span className="tx-hash">TX: {log.txHash.substring(0, 10)}...</span>
+                  {log.blockNumber && (
+                    <span className="block ml-2">Block: {log.blockNumber}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          ))
         ) : (
           <div className="text-center p-8 bg-gray-100 rounded">
             <p>No logs available</p>
