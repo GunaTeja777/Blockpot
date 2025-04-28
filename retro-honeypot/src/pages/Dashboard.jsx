@@ -1,16 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-// Helper function to safely stringify any potential object values
-const safeStringify = (value) => {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'object') {
-    // Handle ethers.js transaction objects
-    if (value.hash) return value.hash.toString();
-    return JSON.stringify(value);
-  }
-  return String(value);
-};
-
 // Simple Spinner component
 function Spinner() {
   return (
@@ -76,32 +65,38 @@ class ErrorBoundary extends React.Component {
   }
 }
 
+// Extract hash from transaction object (handles ethers.js v5 or v6 tx objects)
+const extractTxHash = (txObj) => {
+  // If it's a string, just return it
+  if (typeof txObj === 'string') return txObj;
+  
+  // If it's null/undefined, return empty string
+  if (!txObj) return '';
+  
+  // If it's an object with a hash property that's a string
+  if (typeof txObj === 'object' && txObj.hash && typeof txObj.hash === 'string') {
+    return txObj.hash;
+  }
+  
+  // If it's an object with a hash property that's an object (ethers transaction)
+  if (typeof txObj === 'object' && txObj.hash && typeof txObj.hash === 'object') {
+    return ''; // Return empty since we can't safely use it
+  }
+  
+  // Last resort - try to stringify
+  try {
+    return String(txObj).substring(0, 10);
+  } catch (e) {
+    return '';
+  }
+};
+
 function Dashboard() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('connecting');
   const wsRef = useRef(null);
-
-  // Function to sanitize logs data to ensure no objects are rendered directly
-  const sanitizeLogs = (logsData) => {
-    return logsData.map(log => {
-      // Create a new object with sanitized values
-      const sanitizedLog = {...log};
-      
-      // Ensure txHash is a string
-      if (sanitizedLog.txHash) {
-        sanitizedLog.txHash = safeStringify(sanitizedLog.txHash);
-      }
-      
-      // Ensure other potentially problematic fields are strings
-      if (sanitizedLog.blockNumber) {
-        sanitizedLog.blockNumber = safeStringify(sanitizedLog.blockNumber);
-      }
-      
-      return sanitizedLog;
-    });
-  };
 
   // Function to fetch logs from API
   const fetchLogs = async () => {
@@ -116,7 +111,17 @@ function Dashboard() {
       
       const data = await response.json();
       console.log("Fetched logs:", data);
-      setLogs(sanitizeLogs(data));
+      
+      // Process each log to ensure txHash is a string
+      const processedData = data.map(log => ({
+        ...log,
+        // Process txHash specifically
+        txHash: log.txHash ? extractTxHash(log.txHash) : null,
+        // Ensure blockNumber is a string
+        blockNumber: log.blockNumber ? String(log.blockNumber) : null
+      }));
+      
+      setLogs(processedData);
       setError(null);
     } catch (err) {
       console.error("Failed to fetch logs:", err);
@@ -150,14 +155,26 @@ function Dashboard() {
           
           // Handle different event types
           if (parsedData.event === 'new_log') {
-            const sanitizedData = sanitizeLogs([parsedData.data])[0];
-            setLogs(prevLogs => [...prevLogs, sanitizedData]);
+            // Process new log data
+            const processedLog = {
+              ...parsedData.data,
+              txHash: parsedData.data.txHash ? extractTxHash(parsedData.data.txHash) : null,
+              blockNumber: parsedData.data.blockNumber ? String(parsedData.data.blockNumber) : null
+            };
+            
+            setLogs(prevLogs => [...prevLogs, processedLog]);
           } else if (parsedData.event === 'blockchain_confirmation') {
-            const sanitizedData = sanitizeLogs([parsedData.data])[0];
+            // Process confirmation data
+            const processedData = {
+              ...parsedData.data,
+              txHash: parsedData.data.txHash ? extractTxHash(parsedData.data.txHash) : null,
+              blockNumber: parsedData.data.blockNumber ? String(parsedData.data.blockNumber) : null
+            };
+            
             setLogs(prevLogs => 
               prevLogs.map(log => 
                 (log.timestamp === parsedData.data.timestamp && log.content === parsedData.data.content) 
-                  ? { ...log, ...sanitizedData } 
+                  ? { ...log, ...processedData } 
                   : log
               )
             );
@@ -240,6 +257,16 @@ function Dashboard() {
     );
   };
 
+  // Simple function to safely render TX hash
+  const renderTxHash = (hash) => {
+    if (!hash) return 'N/A';
+    try {
+      return hash.substring(0, 10) + '...';
+    } catch (e) {
+      return 'Invalid Hash';
+    }
+  };
+
   // Render loading state
   if (loading && logs.length === 0) {
     return (
@@ -273,7 +300,7 @@ function Dashboard() {
         {logs.length > 0 ? (
           logs.map((log, index) => (
             <div 
-              key={log.txHash || log.logId || index} 
+              key={index} 
               className={`log-item p-4 border rounded ${
                 log.threatLevel === 'critical' ? 'border-red-500 bg-red-50' :
                 log.threatLevel === 'high' ? 'border-orange-500 bg-orange-50' :
@@ -300,7 +327,7 @@ function Dashboard() {
               </div>
               {log.txHash && (
                 <div className="blockchain-info mt-2 text-xs text-gray-700">
-                  <span className="tx-hash">TX: {log.txHash.substring(0, 10)}...</span>
+                  <span className="tx-hash">TX: {renderTxHash(log.txHash)}</span>
                   {log.blockNumber && (
                     <span className="block ml-2">Block: {log.blockNumber}</span>
                   )}
