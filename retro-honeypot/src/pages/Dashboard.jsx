@@ -12,21 +12,15 @@ const Dashboard = () => {
         pending: 0
     });
     const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState(null);
 
     useEffect(() => {
         // Load initial logs
         const loadInitialLogs = async () => {
             try {
-                const response = await fetchLogs();
-                if (response.success) {
-                    setAttacks(response.data);
-                    updateStats(response.data);
-                } else {
-                    setError(response.error || 'Failed to load logs');
-                }
+                const initialLogs = await fetchLogs();
+                setAttacks(initialLogs);
+                updateStats(initialLogs);
             } catch (err) {
-                setError(err.message || 'Failed to load logs');
                 console.error('Failed to load initial logs:', err);
             } finally {
                 setIsLoading(false);
@@ -37,74 +31,46 @@ const Dashboard = () => {
 
         // Setup WebSocket listeners
         const handleNewLog = (event) => {
-            try {
-                if (!event?.data) {
-                    throw new Error("Invalid event structure");
-                }
-
-                setAttacks(prev => [{
-                    ...event.data,
-                    id: `${event.data.timestamp}-${Math.random().toString(36).substr(2, 9)}`,
-                    blockchainStatus: 'pending',
-                    txHash: null,
-                    blockNumber: null
-                }, ...prev.slice(0, 199)]);
-                
-                setStats(prev => ({
-                    ...prev,
-                    total: prev.total + 1,
-                    pending: prev.pending + 1,
-                    [event.data.type === 'command' ? 'commands' : 
-                     event.data.type === 'login_attempt' ? 'logins' : 
-                     event.data.type === 'hash_capture' ? 'hashes' : 'total']: prev[event.data.type === 'command' ? 'commands' : 
-                                                                               event.data.type === 'login_attempt' ? 'logins' : 
-                                                                               event.data.type === 'hash_capture' ? 'hashes' : 'total'] + 1
-                }));
-            } catch (err) {
-                console.error('Error processing new log:', err);
-            }
+            setAttacks(prev => [{
+                ...event.data,
+                id: `${event.data.timestamp}-${Math.random().toString(36).substr(2, 9)}`,
+                blockchainStatus: 'pending',
+                txHash: null,
+                blockNumber: null
+            }, ...prev.slice(0, 199)]); // Keep max 200 logs
+            
+            setStats(prev => ({
+                ...prev,
+                total: prev.total + 1,
+                pending: prev.pending + 1,
+                [event.data.type === 'command' ? 'commands' : 
+                 event.data.type === 'login_attempt' ? 'logins' : 
+                 event.data.type === 'hash_capture' ? 'hashes' : 'total']: prev[event.data.type === 'command' ? 'commands' : 
+                                                                           event.data.type === 'login_attempt' ? 'logins' : 
+                                                                           event.data.type === 'hash_capture' ? 'hashes' : 'total'] + 1
+            }));
         };
 
         const handleBlockchainConfirmation = (event) => {
-            try {
-                if (!event?.data) {
-                    throw new Error("Invalid confirmation event");
-                }
-
-                setAttacks(prev => prev.map(attack => 
-                    attack.timestamp === event.data.timestamp && 
-                    attack.content === event.data.content
-                        ? { ...attack, ...event.data, blockchainStatus: 'confirmed' }
-                        : attack
-                ));
-                
-                setStats(prev => ({
-                    ...prev,
-                    pending: Math.max(0, prev.pending - 1)
-                }));
-            } catch (err) {
-                console.error('Error processing confirmation:', err);
-            }
-        };
-
-        const handleBlockchainError = (event) => {
-            console.error('Blockchain error:', event.error);
             setAttacks(prev => prev.map(attack => 
                 attack.timestamp === event.data.timestamp && 
                 attack.content === event.data.content
-                    ? { ...attack, blockchainStatus: 'failed', error: event.error }
+                    ? { ...attack, ...event.data, blockchainStatus: 'confirmed' }
                     : attack
             ));
+            
+            setStats(prev => ({
+                ...prev,
+                pending: Math.max(0, prev.pending - 1)
+            }));
         };
 
         const newLogRemover = webSocketService.addListener('new_log', handleNewLog);
         const confirmRemover = webSocketService.addListener('blockchain_confirmation', handleBlockchainConfirmation);
-        const errorRemover = webSocketService.addListener('blockchain_error', handleBlockchainError);
 
         return () => {
             newLogRemover();
             confirmRemover();
-            errorRemover();
         };
     }, []);
 
@@ -142,17 +108,6 @@ const Dashboard = () => {
         return (
             <div className="flex items-center justify-center min-h-screen">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-            </div>
-        );
-    }
-
-    if (error) {
-        return (
-            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
-                <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4" role="alert">
-                    <p className="font-bold">Error</p>
-                    <p>{error}</p>
-                </div>
             </div>
         );
     }
@@ -244,8 +199,6 @@ const Dashboard = () => {
                                             >
                                                 {`${attack.txHash.substring(0, 6)}...${attack.txHash.substring(attack.txHash.length - 4)}`}
                                             </a>
-                                        ) : attack.blockchainStatus === 'failed' ? (
-                                            <span className="text-red-500">Failed</span>
                                         ) : (
                                             <span className="text-yellow-500 flex items-center">
                                                 <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-yellow-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
