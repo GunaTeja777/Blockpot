@@ -137,7 +137,7 @@ _Add demo screenshots or terminal logs here to visually explain the system._
 
 ## 📜 License
 
-MIT © 2025 [Your Name]
+MIT © 2025  Blockpot
 
 ---
 
