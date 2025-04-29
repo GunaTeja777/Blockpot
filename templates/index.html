@@ -5,78 +5,328 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BlockPot AI - Command Monitor</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body {
-            padding-top: 20px;
-            background-color: #f8f9fa;
+        :root {
+            --dark-bg: #121212;
+            --darker-bg: #0a0a0a;
+            --card-bg: #1e1e1e;
+            --card-header: #252525;
+            --text-primary: #e0e0e0;
+            --text-secondary: #aaaaaa;
+            --border-color: #333333;
+            --accent-color: #4da6ff;
+            --success-color: #00c853;
+            --warning-color: #ffd600;
+            --danger-color: #ff3d00;
+            --info-color: #00b0ff;
         }
-        .command-card {
-            margin-bottom: 15px;
-            border-left: 5px solid #ccc;
+        
+        body {
+            background-color: var(--dark-bg);
+            color: var(--text-primary);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding-top: 0;
+        }
+        
+        .dashboard-header {
+            background-color: var(--darker-bg);
+            padding: 20px 0;
+            margin-bottom: 25px;
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+        
+        .logo-text {
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-bottom: 0;
+        }
+        
+        .logo-text span {
+            color: var(--accent-color);
+        }
+        
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .card {
+            background-color: var(--card-bg);
+            border: none;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        
+        .card-header {
+            background-color: var(--card-header);
+            border-bottom: 1px solid var(--border-color);
+            padding: 15px 20px;
+            font-weight: 600;
+        }
+        
+        .card-body {
+            padding: 20px;
+        }
+        
+        .stats-card {
+            text-align: center;
             transition: all 0.3s ease;
         }
+        
+        .stats-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+        }
+        
+        .stats-icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+        
+        .stats-number {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        
+        .stats-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .command-card {
+            margin-bottom: 15px;
+            border-left: 5px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+        
+        .command-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        }
+        
         .command-card.malicious {
-            border-left-color: #dc3545;
+            border-left-color: var(--danger-color);
         }
+        
         .command-card.suspicious {
-            border-left-color: #ffc107;
+            border-left-color: var(--warning-color);
         }
+        
         .command-card.safe {
-            border-left-color: #28a745;
+            border-left-color: var(--success-color);
         }
+        
         .command-card.new {
             animation: highlight 2s ease;
         }
+        
         .command-text {
-            font-family: monospace;
-            padding: 5px;
-            background-color: #f1f1f1;
-            border-radius: 3px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            padding: 12px;
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 6px;
+            overflow-x: auto;
+            color: #00ff00;
+            border: 1px solid var(--border-color);
         }
+        
         .risk-meter {
             height: 10px;
             border-radius: 5px;
-            background: linear-gradient(to right, #28a745, #ffc107, #dc3545);
+            background: linear-gradient(to right, var(--success-color), var(--warning-color), var(--danger-color));
+            margin-top: 5px;
+            margin-bottom: 15px;
         }
+        
         .risk-indicator {
             position: relative;
-            width: 10px;
-            height: 10px;
-            background-color: #000;
+            width: 12px;
+            height: 12px;
+            background-color: white;
             border-radius: 50%;
-            top: -5px;
+            top: -6px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
         }
+        
+        .badge {
+            padding: 5px 10px;
+            font-weight: 600;
+            border-radius: 4px;
+        }
+        
+        .badge-danger {
+            background-color: var(--danger-color);
+            color: white;
+        }
+        
+        .badge-warning {
+            background-color: var(--warning-color);
+            color: black;
+        }
+        
+        .badge-success {
+            background-color: var(--success-color);
+            color: white;
+        }
+        
+        .badge-info {
+            background-color: var(--info-color);
+            color: white;
+        }
+        
+        .connection-status {
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        
+        .connection-status.connected {
+            background-color: rgba(0, 200, 83, 0.2);
+            color: var(--success-color);
+        }
+        
+        .connection-status.disconnected {
+            background-color: rgba(255, 61, 0, 0.2);
+            color: var(--danger-color);
+        }
+        
+        .status-dot {
+            height: 8px;
+            width: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-dot.connected {
+            background-color: var(--success-color);
+            box-shadow: 0 0 5px var(--success-color);
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.disconnected {
+            background-color: var(--danger-color);
+        }
+        
+        .last-update {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
         @keyframes highlight {
-            0% { background-color: rgba(255, 255, 0, 0.5); }
+            0% { background-color: rgba(0, 176, 255, 0.2); }
             100% { background-color: transparent; }
         }
-        .dashboard-header {
-            background-color: #343a40;
-            color: white;
-            padding: 15px 0;
-            margin-bottom: 20px;
+        
+        .form-check-input {
+            background-color: var(--dark-bg);
+            border-color: var(--border-color);
         }
-        .stats-card {
-            text-align: center;
-            margin-bottom: 20px;
+        
+        .form-check-input:checked {
+            background-color: var(--accent-color);
+            border-color: var(--accent-color);
         }
-        .stats-number {
-            font-size: 2rem;
-            font-weight: bold;
+        
+        #commands-container {
+            max-height: 600px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        
+        #commands-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        #commands-container::-webkit-scrollbar-track {
+            background: var(--dark-bg);
+            border-radius: 4px;
+        }
+        
+        #commands-container::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+        
+        #commands-container::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-color);
+        }
+        
+        .analysis-box {
+            background-color: rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+            height: 100%;
+            border: 1px solid var(--border-color);
+        }
+        
+        .analysis-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--accent-color);
+            display: flex;
+            align-items: center;
+        }
+        
+        .analysis-title i {
+            margin-right: 8px;
+        }
+        
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        
+        .progress {
+            height: 8px;
+            background-color: var(--darker-bg);
+            margin-bottom: 10px;
+        }
+        
+        .progress-bar-safe {
+            background-color: var(--success-color);
+        }
+        
+        .progress-bar-suspicious {
+            background-color: var(--warning-color);
+        }
+        
+        .progress-bar-malicious {
+            background-color: var(--danger-color);
         }
     </style>
 </head>
 <body>
     <div class="dashboard-header">
         <div class="container">
-            <div class="row">
+            <div class="row align-items-center">
                 <div class="col-md-6">
-                    <h1>BlockPot AI - Command Monitor</h1>
-                    <p>Real-time honeypot command analysis and threat detection</p>
+                    <h2 class="logo-text"><i class="fas fa-shield-alt me-2"></i>Block<span>Pot</span> AI</h2>
+                    <p class="subtitle">Real-time honeypot command analysis and threat detection</p>
                 </div>
                 <div class="col-md-6 text-end">
-                    <span id="connection-status" class="badge bg-success">Connected</span>
-                    <span id="last-update" class="ms-3"></span>
+                    <div id="connection-status" class="connection-status connected">
+                        <div class="status-dot connected"></div>
+                        Connected
+                    </div>
+                    <div id="last-update" class="last-update mt-2"></div>
                 </div>
             </div>
         </div>
@@ -88,32 +338,36 @@
             <div class="col-md-3">
                 <div class="card stats-card">
                     <div class="card-body">
-                        <h5>Total Commands</h5>
+                        <i class="fas fa-terminal stats-icon text-primary"></i>
                         <div id="total-commands" class="stats-number">0</div>
+                        <div class="stats-label">Total Commands</div>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="card stats-card">
                     <div class="card-body">
-                        <h5>Malicious</h5>
+                        <i class="fas fa-bug stats-icon text-danger"></i>
                         <div id="malicious-commands" class="stats-number text-danger">0</div>
+                        <div class="stats-label">Malicious</div>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="card stats-card">
                     <div class="card-body">
-                        <h5>Suspicious</h5>
+                        <i class="fas fa-exclamation-triangle stats-icon text-warning"></i>
                         <div id="suspicious-commands" class="stats-number text-warning">0</div>
+                        <div class="stats-label">Suspicious</div>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="card stats-card">
                     <div class="card-body">
-                        <h5>Safe</h5>
+                        <i class="fas fa-check-circle stats-icon text-success"></i>
                         <div id="safe-commands" class="stats-number text-success">0</div>
+                        <div class="stats-label">Safe</div>
                     </div>
                 </div>
             </div>
@@ -124,10 +378,10 @@
             <div class="col-md-12">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5>Detected Commands</h5>
+                        <h5><i class="fas fa-code me-2"></i>Detected Commands</h5>
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="auto-scroll" checked>
-                            <label class="form-check-label" for="auto-scroll">Auto-scroll</label>
+                            <label class="form-check-label text-secondary" for="auto-scroll">Auto-scroll</label>
                         </div>
                     </div>
                     <div class="card-body">
@@ -154,13 +408,15 @@
 
         // Connection status handling
         socket.on('connect', () => {
-            document.getElementById('connection-status').className = 'badge bg-success';
-            document.getElementById('connection-status').textContent = 'Connected';
+            const statusElement = document.getElementById('connection-status');
+            statusElement.className = 'connection-status connected';
+            statusElement.innerHTML = '<div class="status-dot connected"></div>Connected';
         });
 
         socket.on('disconnect', () => {
-            document.getElementById('connection-status').className = 'badge bg-danger';
-            document.getElementById('connection-status').textContent = 'Disconnected';
+            const statusElement = document.getElementById('connection-status');
+            statusElement.className = 'connection-status disconnected';
+            statusElement.innerHTML = '<div class="status-dot disconnected"></div>Disconnected';
         });
 
         // Handle new commands
@@ -205,33 +461,88 @@
             // Format timestamp
             const timestamp = new Date(cmd.timestamp).toLocaleString();
             
+            // Get icon based on classification
+            let classIcon;
+            switch(cmd.ml_classification) {
+                case 'malicious': classIcon = 'fa-skull'; break;
+                case 'suspicious': classIcon = 'fa-exclamation-triangle'; break;
+                case 'safe': classIcon = 'fa-check-circle'; break;
+                default: classIcon = 'fa-question-circle';
+            }
+            
             // Create card content
             card.innerHTML = `
                 <div class="card-header d-flex justify-content-between">
-                    <span>Session: ${cmd.session} | IP: ${cmd.src_ip}</span>
-                    <span>${timestamp}</span>
+                    <span>
+                        <i class="fas fa-terminal me-2"></i>
+                        Session: <strong>${cmd.session}</strong> | IP: <strong>${cmd.src_ip}</strong>
+                    </span>
+                    <span><i class="far fa-clock me-1"></i>${timestamp}</span>
                 </div>
                 <div class="card-body">
                     <div class="command-text mb-3">${escapeHtml(cmd.command)}</div>
                     <div class="row">
-                        <div class="col-md-6">
-                            <h6>ML Model Analysis</h6>
-                            <p>Classification: <span class="badge ${getBadgeClass(cmd.ml_classification)}">${cmd.ml_classification}</span></p>
-                            <p>Confidence: ${(cmd.ml_confidence * 100).toFixed(2)}%</p>
-                            <div class="small">
-                                <div>Safe: ${(cmd.ml_probabilities.safe * 100).toFixed(2)}%</div>
-                                <div>Suspicious: ${(cmd.ml_probabilities.suspicious * 100).toFixed(2)}%</div>
-                                <div>Malicious: ${(cmd.ml_probabilities.malicious * 100).toFixed(2)}%</div>
+                        <div class="col-md-6 mb-3">
+                            <div class="analysis-box">
+                                <div class="analysis-title">
+                                    <i class="fas fa-robot"></i>Machine Learning Analysis
+                                </div>
+                                <p>
+                                    Classification: 
+                                    <span class="badge ${getBadgeClass(cmd.ml_classification)}">
+                                        <i class="fas ${classIcon} me-1"></i>${cmd.ml_classification}
+                                    </span>
+                                </p>
+                                <p>Confidence: ${(cmd.ml_confidence * 100).toFixed(2)}%</p>
+                                
+                                <div class="progress-label">
+                                    <span>Safe</span>
+                                    <span>${(cmd.ml_probabilities.safe * 100).toFixed(2)}%</span>
+                                </div>
+                                <div class="progress">
+                                    <div class="progress-bar progress-bar-safe" role="progressbar" 
+                                         style="width: ${cmd.ml_probabilities.safe * 100}%"></div>
+                                </div>
+                                
+                                <div class="progress-label">
+                                    <span>Suspicious</span>
+                                    <span>${(cmd.ml_probabilities.suspicious * 100).toFixed(2)}%</span>
+                                </div>
+                                <div class="progress">
+                                    <div class="progress-bar progress-bar-suspicious" role="progressbar" 
+                                         style="width: ${cmd.ml_probabilities.suspicious * 100}%"></div>
+                                </div>
+                                
+                                <div class="progress-label">
+                                    <span>Malicious</span>
+                                    <span>${(cmd.ml_probabilities.malicious * 100).toFixed(2)}%</span>
+                                </div>
+                                <div class="progress">
+                                    <div class="progress-bar progress-bar-malicious" role="progressbar" 
+                                         style="width: ${cmd.ml_probabilities.malicious * 100}%"></div>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <h6>NLP Analysis</h6>
-                            <p>Intent: <span class="badge ${getIntentBadgeClass(cmd.intent)}">${cmd.intent}</span></p>
-                            <p>Risk Score: ${cmd.risk_score.toFixed(2)}/10</p>
-                            <div class="risk-meter">
-                                <div class="risk-indicator" style="left: ${cmd.risk_score * 10}%"></div>
+                        <div class="col-md-6 mb-3">
+                            <div class="analysis-box">
+                                <div class="analysis-title">
+                                    <i class="fas fa-brain"></i>NLP Analysis
+                                </div>
+                                <p>
+                                    Intent: 
+                                    <span class="badge ${getIntentBadgeClass(cmd.intent)}">
+                                        ${getIntentIcon(cmd.intent)} ${cmd.intent}
+                                    </span>
+                                </p>
+                                <p>Risk Score: <strong>${cmd.risk_score.toFixed(2)}/10</strong></p>
+                                <div class="risk-meter">
+                                    <div class="risk-indicator" style="left: ${cmd.risk_score * 10}%"></div>
+                                </div>
+                                <p>
+                                    <strong>Actions:</strong> 
+                                    ${cmd.actions.length ? formatActions(cmd.actions) : '<span class="text-secondary">None detected</span>'}
+                                </p>
                             </div>
-                            <p class="mt-2">Actions: ${cmd.actions.join(', ') || 'None'}</p>
                         </div>
                     </div>
                 </div>
@@ -246,6 +557,37 @@
             }, 2000);
         }
         
+        // Format actions with icons
+        function formatActions(actions) {
+            if (!actions.length) return '<span class="text-secondary">None</span>';
+            
+            return actions.map(action => {
+                let icon = 'fa-code';
+                if (action.includes('download')) icon = 'fa-download';
+                if (action.includes('execute')) icon = 'fa-play';
+                if (action.includes('scan')) icon = 'fa-search';
+                if (action.includes('delete')) icon = 'fa-trash';
+                if (action.includes('read')) icon = 'fa-file-alt';
+                if (action.includes('write')) icon = 'fa-file-edit';
+                if (action.includes('network')) icon = 'fa-network-wired';
+                
+                return `<span class="badge bg-secondary me-1 mb-1"><i class="fas ${icon} me-1"></i>${action}</span>`;
+            }).join(' ');
+        }
+        
+        // Get intent icon
+        function getIntentIcon(intent) {
+            let icon;
+            switch(intent) {
+                case 'attack': icon = '<i class="fas fa-crosshairs me-1"></i>'; break;
+                case 'reconnaissance': icon = '<i class="fas fa-search me-1"></i>'; break;
+                case 'exploration': icon = '<i class="fas fa-compass me-1"></i>'; break;
+                case 'informational': icon = '<i class="fas fa-info-circle me-1"></i>'; break;
+                default: icon = '<i class="fas fa-question-circle me-1"></i>';
+            }
+            return icon;
+        }
+        
         // Function to update stats display
         function updateStats() {
             document.getElementById('total-commands').textContent = stats.total;
@@ -257,9 +599,9 @@
         // Helper function to get badge class based on classification
         function getBadgeClass(classification) {
             switch(classification) {
-                case 'malicious': return 'bg-danger';
-                case 'suspicious': return 'bg-warning text-dark';
-                case 'safe': return 'bg-success';
+                case 'malicious': return 'badge-danger';
+                case 'suspicious': return 'badge-warning';
+                case 'safe': return 'badge-success';
                 default: return 'bg-secondary';
             }
         }
@@ -267,10 +609,10 @@
         // Helper function to get badge class based on intent
         function getIntentBadgeClass(intent) {
             switch(intent) {
-                case 'attack': return 'bg-danger';
-                case 'reconnaissance': return 'bg-warning text-dark';
-                case 'exploration': return 'bg-info text-dark';
-                case 'informational': return 'bg-success';
+                case 'attack': return 'badge-danger';
+                case 'reconnaissance': return 'badge-warning';
+                case 'exploration': return 'badge-info';
+                case 'informational': return 'badge-success';
                 default: return 'bg-secondary';
             }
         }
