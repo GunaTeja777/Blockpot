@@ -165,7 +165,7 @@ if __name__ == "__main__":
     # Example usage
     classifier = CommandClassifier()
     classifier.train("/home/guna-teja/Desktop/project/Blockpot/data/commands-classification-cleaned.csv")
-    classifier.save_model("trained_command_classifier")
+    classifier.save_model("/home/guna-teja/Desktop/project/Blockpot/trained_command_classifier")
     
     # Test the model with a few examples
     test_commands = [
