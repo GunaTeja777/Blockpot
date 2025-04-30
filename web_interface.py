@@ -15,7 +15,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Monitoring configuration
 LOG_FILE = '/home/guna-teja/cowrie/var/log/cowrie/cowrie.json'
-MODEL_PATH = '/home/guna-teja/Desktop/hackathonX/blockPot-AI/trained_command_classifier'
+MODEL_PATH = '/home/guna-teja/Desktop/project/Blockpot/trained_command_classifier'
 
 # Start the monitoring process
 processor, observer = start_monitoring(LOG_FILE, MODEL_PATH)
