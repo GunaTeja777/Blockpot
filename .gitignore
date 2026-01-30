@@ -43,11 +43,24 @@ Thumbs.db
 # Python
 # ======================
 venv/
-.env/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# ======================
+# ML Models
+# ======================
+*.h5
+*.keras
+*.pt
+*.onnx
+
+# ======================
+# Flask / Runtime
+# ======================
+instance/
+*.sqlite3
 
 # ======================
 # Runtime / temp files
